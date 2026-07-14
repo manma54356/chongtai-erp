@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ═══════════════════════════════════════════
@@ -704,19 +705,20 @@ enum InvoiceStatus2 {
 // ═══════════════════════════════════════════
 
 model Approval {
-  id         String         @id @default(cuid())
-  targetType ApprovalTarget
-  targetId   String
-  step       Int
-  approverId String
-  status     ApprovalStatus @default(PENDING)
-  comment    String?
-  decidedAt  DateTime?
-  createdAt  DateTime       @default(now())
+  id               String         @id @default(cuid())
+  targetType       ApprovalTarget
+  step             Int
+  approverId       String
+  status           ApprovalStatus @default(PENDING)
+  comment          String?
+  decidedAt        DateTime?
+  createdAt        DateTime       @default(now())
+  changeOrderId    String?
+  accountPayableId String?
 
   approver       User            @relation(fields: [approverId], references: [id])
-  changeOrder    ChangeOrder?    @relation(fields: [targetId], references: [id])
-  accountPayable AccountPayable? @relation(fields: [targetId], references: [id])
+  changeOrder    ChangeOrder?    @relation(fields: [changeOrderId], references: [id])
+  accountPayable AccountPayable? @relation(fields: [accountPayableId], references: [id])
 }
 
 enum ApprovalTarget {

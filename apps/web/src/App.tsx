@@ -1,22 +1,29 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { Layout } from 'antd'
+import { Spin } from 'antd'
+import { useAuth } from './context/AuthContext'
+import MainLayout from './components/MainLayout'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import ProjectList from './pages/projects/ProjectList'
+import CustomerList from './pages/customers/CustomerList'
+import ContractList from './pages/contracts/ContractList'
 
-// Pages（之後逐步建立）
-// import Dashboard from './pages/Dashboard'
-// import Projects from './pages/Projects'
-// import Customers from './pages/Customers'
-// import Contracts from './pages/Contracts'
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { token, isLoading } = useAuth()
+  if (isLoading) return <div style={{ display:'flex', justifyContent:'center', paddingTop:100 }}><Spin size="large" /></div>
+  if (!token) return <Navigate to="/login" replace />
+  return <MainLayout>{children}</MainLayout>
+}
 
 export default function App() {
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<div style={{ padding: 24 }}>儀表板（建置中）</div>} />
-        <Route path="/projects" element={<div style={{ padding: 24 }}>建案管理（建置中）</div>} />
-        <Route path="/customers" element={<div style={{ padding: 24 }}>客戶管理（建置中）</div>} />
-        <Route path="/contracts" element={<div style={{ padding: 24 }}>合約管理（建置中）</div>} />
-      </Routes>
-    </Layout>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/projects"  element={<ProtectedRoute><ProjectList /></ProtectedRoute>} />
+      <Route path="/customers" element={<ProtectedRoute><CustomerList /></ProtectedRoute>} />
+      <Route path="/contracts" element={<ProtectedRoute><ContractList /></ProtectedRoute>} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
   )
 }

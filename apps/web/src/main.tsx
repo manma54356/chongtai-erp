@@ -6,14 +6,13 @@ import { ConfigProvider } from 'antd'
 import zhTW from 'antd/locale/zh_TW'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-tw'
+import { AuthProvider } from './context/AuthContext'
 import App from './App'
 
 dayjs.locale('zh-tw')
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: 1, staleTime: 1000 * 60 * 5 },
-  },
+  defaultOptions: { queries: { retry: 1, staleTime: 1000 * 60 * 5 } },
 })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -21,7 +20,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ConfigProvider locale={zhTW}>
         <BrowserRouter>
-          <App />
+          <AuthProvider>
+            <App />
+          </AuthProvider>
         </BrowserRouter>
       </ConfigProvider>
     </QueryClientProvider>
