@@ -1,0 +1,795 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════
+// 系統管理
+// ═══════════════════════════════════════════
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  taxId     String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users           UserCompanyRole[]
+  projects        Project[]
+  customers       Customer[]
+  vendors         Vendor[]
+  chartOfAccounts ChartOfAccount[]
+  bankAccounts    BankAccount[]
+  journalEntries  JournalEntry[]
+  reminderRules   ReminderRule[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  companies UserCompanyRole[]
+  contracts Contract[]        @relation("SalesPerson")
+  followUps CustomerFollowUp[]
+  approvals Approval[]
+  auditLogs AuditLog[]
+}
+
+model UserCompanyRole {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  role      UserRole
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([userId, companyId])
+}
+
+enum UserRole {
+  OWNER
+  FINANCE_CHIEF
+  ACCOUNTANT
+  CASHIER
+  SALES
+  SALES_ADMIN
+  PM
+  ENGINEER
+  CUSTOMER_SERVICE
+}
+
+// ═══════════════════════════════════════════
+// 建案 & 戶別
+// ═══════════════════════════════════════════
+
+model Project {
+  id             String        @id @default(cuid())
+  companyId      String
+  code           String
+  name           String
+  address        String?
+  totalUnits     Int
+  pmId           String?
+  status         ProjectStatus @default(PLANNING)
+  startDate      DateTime?
+  completionDate DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  company      Company            @relation(fields: [companyId], references: [id])
+  units        Unit[]
+  milestones   ProjectMilestone[]
+  caseProgress CaseProgress[]
+  budgets      ProjectBudget[]
+  costs        ProjectCost[]
+
+  @@unique([companyId, code])
+}
+
+enum ProjectStatus {
+  PLANNING
+  LAND_ACQUIRED
+  CONSTRUCTION
+  SALES
+  DELIVERING
+  COMPLETED
+}
+
+model Unit {
+  id        String     @id @default(cuid())
+  projectId String
+  code      String
+  floor     Int?
+  area      Decimal?   @db.Decimal(10, 2)
+  listPrice Decimal?   @db.Decimal(15, 0)
+  status    UnitStatus @default(AVAILABLE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  project   Project    @relation(fields: [projectId], references: [id])
+  contracts Contract[]
+
+  @@unique([projectId, code])
+}
+
+enum UnitStatus {
+  AVAILABLE
+  RESERVED
+  CONTRACTED
+  DELIVERED
+}
+
+// ═══════════════════════════════════════════
+// 工程里程碑
+// ═══════════════════════════════════════════
+
+model MilestoneTemplate {
+  id    String                  @id @default(cuid())
+  name  String
+  items MilestoneTemplateItem[]
+}
+
+model MilestoneTemplateItem {
+  id         String            @id @default(cuid())
+  templateId String
+  order      Int
+  name       String
+  template   MilestoneTemplate @relation(fields: [templateId], references: [id])
+}
+
+model ProjectMilestone {
+  id            String          @id @default(cuid())
+  projectId     String
+  order         Int
+  name          String
+  plannedDate   DateTime?
+  actualDate    DateTime?
+  status        MilestoneStatus @default(PENDING)
+  completionPct Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  project          Project           @relation(fields: [projectId], references: [id])
+  paymentSchedules PaymentSchedule[]
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  DELAYED
+}
+
+model CaseProgress {
+  id           String          @id @default(cuid())
+  projectId    String
+  stage        CaseStage
+  plannedStart DateTime?
+  plannedEnd   DateTime?
+  actualStart  DateTime?
+  actualEnd    DateTime?
+  status       MilestoneStatus @default(PENDING)
+  updatedAt    DateTime        @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@unique([projectId, stage])
+}
+
+enum CaseStage {
+  LAND_ACQUISITION
+  PLANNING_PERMIT
+  CONSTRUCTION_START
+  SALES_PERIOD
+  CONSTRUCTION
+  USE_PERMIT
+  DELIVERY
+  WARRANTY_CLOSE
+}
+
+// ═══════════════════════════════════════════
+// 客戶 & CRM
+// ═══════════════════════════════════════════
+
+model Customer {
+  id         String         @id @default(cuid())
+  companyId  String
+  name       String
+  idNumber   String?
+  phone      String?
+  email      String?
+  address    String?
+  source     CustomerSource @default(UNKNOWN)
+  grade      CustomerGrade  @default(PROSPECT)
+  assignedTo String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  company   Company            @relation(fields: [companyId], references: [id])
+  followUps CustomerFollowUp[]
+  contracts Contract[]
+}
+
+enum CustomerSource {
+  CALL
+  VISIT
+  AD
+  BROKER
+  REFERRAL
+  UNKNOWN
+}
+
+enum CustomerGrade {
+  PROSPECT
+  NEGOTIATING
+  CONTRACTED
+  DELIVERED
+}
+
+model CustomerFollowUp {
+  id           String    @id @default(cuid())
+  customerId   String
+  userId       String
+  content      String
+  nextFollowUp DateTime?
+  createdAt    DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+}
+
+// ═══════════════════════════════════════════
+// 合約
+// ═══════════════════════════════════════════
+
+model Contract {
+  id                 String         @id @default(cuid())
+  companyId          String
+  contractNo         String
+  customerId         String
+  unitId             String
+  salesPersonId      String?
+  totalPrice         Decimal        @db.Decimal(15, 0)
+  buildingPrice      Decimal?       @db.Decimal(15, 0)
+  landPrice          Decimal?       @db.Decimal(15, 0)
+  signDate           DateTime?
+  status             ContractStatus @default(NEGOTIATING)
+  loanBank           String?
+  loanAmount         Decimal?       @db.Decimal(15, 0)
+  loanStatus         LoanStatus?
+  deliveryDate       DateTime?
+  actualDeliveryDate DateTime?
+  warrantyEndDate    DateTime?
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  customer         Customer          @relation(fields: [customerId], references: [id])
+  unit             Unit              @relation(fields: [unitId], references: [id])
+  salesPerson      User?             @relation("SalesPerson", fields: [salesPersonId], references: [id])
+  paymentSchedules PaymentSchedule[]
+  changeOrders     ChangeOrder[]
+  serviceTickets   ServiceTicket[]
+  invoices         Invoice[]
+
+  @@unique([companyId, contractNo])
+}
+
+enum ContractStatus {
+  NEGOTIATING
+  DEPOSITED
+  SIGNED
+  SEALED
+  LOAN_APPROVED
+  READY_DELIVER
+  DELIVERED
+  WARRANTY
+  CLOSED
+}
+
+enum LoanStatus {
+  NOT_APPLIED
+  APPLIED
+  REVIEWING
+  APPROVED
+  DISBURSED
+}
+
+// ═══════════════════════════════════════════
+// 付款排程
+// ═══════════════════════════════════════════
+
+model PaymentSchedule {
+  id                String          @id @default(cuid())
+  contractId        String
+  periodCode        String
+  periodType        PeriodType
+  calcMethod        CalcMethod
+  fixedAmount       Decimal?        @db.Decimal(15, 0)
+  percentage        Decimal?        @db.Decimal(5, 2)
+  calcBase          CalcBase        @default(TOTAL_PRICE)
+  triggerType       TriggerType     @default(MILESTONE)
+  milestoneId       String?
+  scheduledAmount   Decimal         @db.Decimal(15, 0)
+  changeOrderAdj    Decimal         @default(0) @db.Decimal(15, 0)
+  finalAmount       Decimal         @db.Decimal(15, 0)
+  dueDate           DateTime?
+  invoiceDate       DateTime?
+  receiverAccount   ReceiverAccount @default(TRUST)
+  paymentDeadline   DateTime?
+  receivedAmount    Decimal         @default(0) @db.Decimal(15, 0)
+  receivedDate      DateTime?
+  trustConfirmed    Boolean         @default(false)
+  trustRequestDate  DateTime?
+  trustReleasedDate DateTime?
+  invoiceStatus     InvoiceStatus   @default(PENDING)
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  contract  Contract          @relation(fields: [contractId], references: [id])
+  milestone ProjectMilestone? @relation(fields: [milestoneId], references: [id])
+}
+
+enum PeriodType {
+  DEPOSIT
+  CONTRACT_FEE
+  PROGRESS
+  DELIVERY
+  BANK_LOAN
+}
+
+enum CalcMethod {
+  FIXED
+  PCT
+}
+
+enum CalcBase {
+  TOTAL_PRICE
+  BUILDING_PRICE
+}
+
+enum TriggerType {
+  DATE
+  MILESTONE
+  EVENT
+}
+
+enum ReceiverAccount {
+  TRUST
+  COMPANY
+}
+
+enum InvoiceStatus {
+  PENDING
+  ISSUED
+  VOIDED
+}
+
+// ═══════════════════════════════════════════
+// 客變申請
+// ═══════════════════════════════════════════
+
+model ChangeOrder {
+  id           String            @id @default(cuid())
+  contractId   String
+  orderNo      String
+  requestDate  DateTime
+  description  String
+  addAmount    Decimal           @default(0) @db.Decimal(15, 0)
+  deductAmount Decimal           @default(0) @db.Decimal(15, 0)
+  netAmount    Decimal           @db.Decimal(15, 0)
+  status       ChangeOrderStatus @default(PENDING)
+  approvedAt   DateTime?
+  notes        String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  contract  Contract   @relation(fields: [contractId], references: [id])
+  approvals Approval[]
+}
+
+enum ChangeOrderStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// ═══════════════════════════════════════════
+// 工單 / 保固
+// ═══════════════════════════════════════════
+
+model ServiceTicket {
+  id            String       @id @default(cuid())
+  contractId    String
+  ticketNo      String
+  type          TicketType
+  description   String
+  vendorId      String?
+  scheduledDate DateTime?
+  completedDate DateTime?
+  status        TicketStatus @default(OPEN)
+  satisfaction  Int?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  contract Contract @relation(fields: [contractId], references: [id])
+  vendor   Vendor?  @relation(fields: [vendorId], references: [id])
+}
+
+enum TicketType {
+  INSPECTION
+  WARRANTY
+  COMPLAINT
+}
+
+enum TicketStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+}
+
+// ═══════════════════════════════════════════
+// 科目表 & 複式記帳
+// ═══════════════════════════════════════════
+
+model ChartOfAccount {
+  id         String       @id @default(cuid())
+  companyId  String
+  code       String
+  name       String
+  category   AcctCategory
+  parentCode String?
+  isActive   Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+
+  company      Company            @relation(fields: [companyId], references: [id])
+  journalLines JournalEntryLine[]
+
+  @@unique([companyId, code])
+}
+
+enum AcctCategory {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  COGS
+  EXPENSE
+}
+
+model JournalEntry {
+  id          String      @id @default(cuid())
+  companyId   String
+  entryNo     String
+  entryDate   DateTime
+  description String
+  source      EntrySource
+  sourceId    String?
+  projectId   String?
+  status      EntryStatus @default(DRAFT)
+  createdBy   String
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  company Company            @relation(fields: [companyId], references: [id])
+  lines   JournalEntryLine[]
+
+  @@unique([companyId, entryNo])
+}
+
+model JournalEntryLine {
+  id          String   @id @default(cuid())
+  entryId     String
+  accountId   String
+  description String?
+  debit       Decimal  @default(0) @db.Decimal(15, 2)
+  credit      Decimal  @default(0) @db.Decimal(15, 2)
+  order       Int
+
+  entry   JournalEntry   @relation(fields: [entryId], references: [id])
+  account ChartOfAccount @relation(fields: [accountId], references: [id])
+}
+
+enum EntrySource {
+  AR
+  AP
+  BANK
+  TRUST
+  REVENUE
+  COST
+  MANUAL
+}
+
+enum EntryStatus {
+  DRAFT
+  POSTED
+  VOIDED
+}
+
+// ═══════════════════════════════════════════
+// 應付帳款
+// ═══════════════════════════════════════════
+
+model AccountPayable {
+  id          String   @id @default(cuid())
+  companyId   String
+  vendorId    String
+  projectId   String?
+  apNo        String
+  description String
+  amount      Decimal  @db.Decimal(15, 0)
+  dueDate     DateTime
+  paidAmount  Decimal  @default(0) @db.Decimal(15, 0)
+  paidDate    DateTime?
+  status      ApStatus @default(PENDING)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vendor    Vendor     @relation(fields: [vendorId], references: [id])
+  approvals Approval[]
+}
+
+enum ApStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+// ═══════════════════════════════════════════
+// 銀行帳戶 & 交易
+// ═══════════════════════════════════════════
+
+model BankAccount {
+  id          String       @id @default(cuid())
+  companyId   String
+  bankName    String
+  accountNo   String
+  accountName String
+  type        BankAcctType
+  balance     Decimal      @default(0) @db.Decimal(15, 2)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+
+  company      Company           @relation(fields: [companyId], references: [id])
+  transactions BankTransaction[]
+}
+
+enum BankAcctType {
+  COMPANY
+  TRUST
+  LOAN
+}
+
+model BankTransaction {
+  id            String   @id @default(cuid())
+  bankAccountId String
+  txDate        DateTime
+  description   String
+  debit         Decimal  @default(0) @db.Decimal(15, 2)
+  credit        Decimal  @default(0) @db.Decimal(15, 2)
+  balance       Decimal  @db.Decimal(15, 2)
+  reconciled    Boolean  @default(false)
+  sourceId      String?
+  createdAt     DateTime @default(now())
+
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
+}
+
+// ═══════════════════════════════════════════
+// 廠商
+// ═══════════════════════════════════════════
+
+model Vendor {
+  id        String         @id @default(cuid())
+  companyId String
+  name      String
+  taxId     String?
+  category  VendorCategory
+  contact   String?
+  phone     String?
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+
+  company        Company          @relation(fields: [companyId], references: [id])
+  payables       AccountPayable[]
+  serviceTickets ServiceTicket[]
+}
+
+enum VendorCategory {
+  CONSTRUCTION
+  MATERIAL
+  DESIGN
+  ADVERTISING
+  BROKER
+  LEGAL
+  OTHER
+}
+
+// ═══════════════════════════════════════════
+// 預算 & 成本
+// ═══════════════════════════════════════════
+
+model ProjectBudget {
+  id           String       @id @default(cuid())
+  projectId    String
+  category     CostCategory
+  budgetAmount Decimal      @db.Decimal(15, 0)
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@unique([projectId, category])
+}
+
+model ProjectCost {
+  id          String       @id @default(cuid())
+  projectId   String
+  category    CostCategory
+  description String
+  amount      Decimal      @db.Decimal(15, 0)
+  costDate    DateTime
+  vendorId    String?
+  createdAt   DateTime     @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+enum CostCategory {
+  LAND
+  CONSTRUCTION
+  DESIGN
+  ADVERTISING
+  ADMIN
+  FINANCE
+  OTHER
+}
+
+// ═══════════════════════════════════════════
+// 發票
+// ═══════════════════════════════════════════
+
+model Invoice {
+  id          String        @id @default(cuid())
+  companyId   String
+  contractId  String?
+  invoiceNo   String
+  type        InvoiceType
+  issueDate   DateTime
+  amount      Decimal       @db.Decimal(15, 0)
+  taxAmount   Decimal       @db.Decimal(15, 0)
+  totalAmount Decimal       @db.Decimal(15, 0)
+  status      InvoiceStatus2 @default(VALID)
+  createdAt   DateTime      @default(now())
+
+  contract Contract? @relation(fields: [contractId], references: [id])
+}
+
+enum InvoiceType {
+  ADVANCE
+  SALES
+  INPUT
+}
+
+enum InvoiceStatus2 {
+  VALID
+  VOIDED
+}
+
+// ═══════════════════════════════════════════
+// 審核簽核
+// ═══════════════════════════════════════════
+
+model Approval {
+  id         String         @id @default(cuid())
+  targetType ApprovalTarget
+  targetId   String
+  step       Int
+  approverId String
+  status     ApprovalStatus @default(PENDING)
+  comment    String?
+  decidedAt  DateTime?
+  createdAt  DateTime       @default(now())
+
+  approver       User            @relation(fields: [approverId], references: [id])
+  changeOrder    ChangeOrder?    @relation(fields: [targetId], references: [id])
+  accountPayable AccountPayable? @relation(fields: [targetId], references: [id])
+}
+
+enum ApprovalTarget {
+  CHANGE_ORDER
+  ACCOUNT_PAYABLE
+  JOURNAL_ENTRY
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ═══════════════════════════════════════════
+// 提醒規則 & 通知
+// ═══════════════════════════════════════════
+
+model ReminderRule {
+  id            String     @id @default(cuid())
+  companyId     String
+  name          String
+  sourceTable   String
+  triggerField  String
+  daysBeforeArr Int[]
+  targetRoles   UserRole[]
+  channels      String[]
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+
+  company       Company        @relation(fields: [companyId], references: [id])
+  notifications Notification[]
+}
+
+model Notification {
+  id          String             @id @default(cuid())
+  companyId   String
+  ruleId      String?
+  targetType  String
+  targetId    String
+  title       String
+  content     String
+  recipientId String
+  status      NotificationStatus @default(PENDING)
+  readAt      DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime           @default(now())
+
+  rule ReminderRule? @relation(fields: [ruleId], references: [id])
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  READ
+  FAILED
+}
+
+// ═══════════════════════════════════════════
+// 稽核日誌
+// ═══════════════════════════════════════════
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  companyId  String
+  userId     String
+  action     String
+  targetType String
+  targetId   String
+  before     Json?
+  after      Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
