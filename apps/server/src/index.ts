@@ -22,7 +22,10 @@ import invoiceRoutesDef         from './routes/invoiceRoutes.js'
 
 const app = Fastify({ logger: true })
 
-await app.register(cors, { origin: process.env.FRONTEND_URL ?? true })
+const corsOrigin = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(u => u.trim())
+  : true
+await app.register(cors, { origin: corsOrigin })
 await app.register(jwt, { secret: process.env.JWT_SECRET ?? 'dev-secret-min-32-characters-here' })
 await app.register(authenticate)
 
