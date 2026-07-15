@@ -5,7 +5,7 @@ import {
   DashboardOutlined, ProjectOutlined, TeamOutlined, FileTextOutlined,
   AccountBookOutlined, LogoutOutlined, UserOutlined, SettingOutlined,
   ShopOutlined, AuditOutlined, BankOutlined, SolutionOutlined, PieChartOutlined,
-  HistoryOutlined, KeyOutlined, SendOutlined, CalendarOutlined, FileInvoiceOutlined,
+  HistoryOutlined, KeyOutlined, SendOutlined, CalendarOutlined, ProfileOutlined,
 } from '@ant-design/icons'
 import { useAuth } from '../context/AuthContext'
 import ChangePasswordModal from './ChangePasswordModal'
@@ -55,7 +55,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       { key: '/finance/payment-requests',    icon: <SendOutlined />,        label: '請款管理' },
       { key: '/finance/payables',            icon: <BankOutlined />,        label: '應付帳款' },
       { key: '/finance/accounting-periods',  icon: <CalendarOutlined />,    label: '關帳管理' },
-      { key: '/finance/invoices',            icon: <FileInvoiceOutlined />, label: '出帳管理' },
+      { key: '/finance/invoices',            icon: <ProfileOutlined />, label: '出帳管理' },
       { key: '/finance/journal',             icon: <AuditOutlined />,       label: '傳票管理' },
       { key: '/finance/vendors',             icon: <ShopOutlined />,        label: '廠商管理' },
       { key: '/finance/chart-of-accounts',   icon: <SolutionOutlined />,    label: '會計科目' },
