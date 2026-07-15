@@ -28,7 +28,7 @@ export default function ProjectList() {
 
   const create = useMutation({
     mutationFn: (values: any) => api.post('/api/projects', values),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); setOpen(false); form.resetFields() },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); qc.invalidateQueries({ queryKey: ['projects-simple'] }); setOpen(false); form.resetFields() },
   })
 
   const columns = [
