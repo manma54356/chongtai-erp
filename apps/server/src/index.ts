@@ -19,10 +19,14 @@ import auditLogRoutes           from './routes/auditLogs.js'
 import paymentRequestRoutes     from './routes/paymentRequests.js'
 import accountingPeriodRoutes   from './routes/accountingPeriods.js'
 import invoiceRoutesDef         from './routes/invoiceRoutes.js'
+import expenseCategoryRoutes    from './routes/expenseCategories.js'
 
 const app = Fastify({ logger: true })
 
-await app.register(cors, { origin: process.env.FRONTEND_URL ?? true })
+const corsOrigin = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(u => u.trim())
+  : true
+await app.register(cors, { origin: corsOrigin })
 await app.register(jwt, { secret: process.env.JWT_SECRET ?? 'dev-secret-min-32-characters-here' })
 await app.register(authenticate)
 
@@ -44,6 +48,7 @@ await app.register(auditLogRoutes,         prefix)
 await app.register(paymentRequestRoutes,   prefix)
 await app.register(accountingPeriodRoutes, prefix)
 await app.register(invoiceRoutesDef,       prefix)
+await app.register(expenseCategoryRoutes,  prefix)
 
 app.get('/health', async () => ({ status: 'ok' }))
 

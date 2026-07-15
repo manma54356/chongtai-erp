@@ -42,6 +42,7 @@ export default async function userRoutes(app: FastifyInstance) {
   })
 
   app.put('/users/:userId/role', auth, async (req, reply) => {
+    if (req.role !== 'OWNER') return reply.code(403).send({ message: '僅老闆可變更成員角色' })
     const { userId } = req.params as any
     const { role } = req.body as any
     const member = await prisma.userCompanyRole.findUnique({
