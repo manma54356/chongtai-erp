@@ -11,7 +11,7 @@ export async function createAuditLog(opts: {
   ip?: string
 }) {
   try {
-    await prisma.auditLog.create({ data: opts })
+    await prisma.auditLog.create({ data: opts as any })
   } catch {
     // non-blocking — audit failure must not break the request
   }
