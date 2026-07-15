@@ -1,3 +1,6 @@
+process.on('uncaughtException', (err) => { console.error('UNCAUGHT:', err); process.exit(1) })
+process.on('unhandledRejection', (err) => { console.error('REJECTION:', err); process.exit(1) })
+console.log('BOOT: process started, NODE_VERSION=' + process.version)
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
