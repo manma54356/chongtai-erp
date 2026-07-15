@@ -14,6 +14,7 @@ interface AuthState {
   user: AuthUser | null
   company: AuthCompany | null
   role: string | null
+  features: string[]
   token: string | null
 }
 
@@ -27,7 +28,7 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
-    user: null, company: null, role: null,
+    user: null, company: null, role: null, features: [],
     token: localStorage.getItem('token'),
   })
   const [isLoading, setIsLoading] = useState(!!localStorage.getItem('token'))
@@ -36,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (state.token) {
       api.get('/api/auth/me')
         .then(({ data }) => {
-          setState(prev => ({ ...prev, user: data.user, role: data.role }))
+          setState(prev => ({ ...prev, user: data.user, role: data.role, features: data.features ?? [] }))
         })
         .catch(() => logout())
         .finally(() => setIsLoading(false))
@@ -47,13 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await api.post('/api/auth/login', { email, password })
     localStorage.setItem('token', data.token)
     localStorage.setItem('refreshToken', data.refreshToken)
-    setState({ user: data.user, company: data.company, role: data.role, token: data.token })
+    setState({ user: data.user, company: data.company, role: data.role, features: data.features ?? [], token: data.token })
   }
 
   const logout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('refreshToken')
-    setState({ user: null, company: null, role: null, token: null })
+    setState({ user: null, company: null, role: null, features: [], token: null })
     setIsLoading(false)
   }
 

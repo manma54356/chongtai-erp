@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Table, Button, Tag, Space, Modal, Form, Input, InputNumber, Select, Typography } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import dayjs from 'dayjs'
 
@@ -18,6 +19,7 @@ export default function ProjectList() {
   const [open, setOpen] = useState(false)
   const [form] = Form.useForm()
   const qc = useQueryClient()
+  const navigate = useNavigate()
 
   const { data, isLoading } = useQuery({
     queryKey: ['projects'],
@@ -52,7 +54,8 @@ export default function ProjectList() {
       </div>
 
       <Table dataSource={data?.data ?? []} columns={columns} rowKey="id"
-        loading={isLoading} pagination={{ total: data?.total, pageSize: 20 }} />
+        loading={isLoading} pagination={{ total: data?.total, pageSize: 20 }}
+        onRow={(r: any) => ({ onClick: () => navigate(`/projects/${r.id}`), style: { cursor: 'pointer' } })} />
 
       <Modal title="新增建案" open={open} onCancel={() => setOpen(false)}
         onOk={() => form.submit()} confirmLoading={create.isPending}>

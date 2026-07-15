@@ -19,8 +19,8 @@ export default async function customerRoutes(app: FastifyInstance) {
 
   // 列表
   app.get('/customers', auth, async (req) => {
-    const { page = 1, pageSize = 20, grade, keyword } = req.query as any
-    const where = {
+    const { page = 1, pageSize = 20, grade, keyword, projectId } = req.query as any
+    const where: any = {
       companyId: req.companyId,
       ...(grade ? { grade } : {}),
       ...(keyword ? {
@@ -29,16 +29,28 @@ export default async function customerRoutes(app: FastifyInstance) {
           { phone: { contains: keyword } },
         ],
       } : {}),
+      ...(projectId ? {
+        contracts: { some: { unit: { projectId } } },
+      } : {}),
     }
     const [data, total] = await Promise.all([
       prisma.customer.findMany({
-        where, skip: (page - 1) * pageSize, take: pageSize,
+        where, skip: (page - 1) * pageSize, take: Number(pageSize),
         orderBy: { createdAt: 'desc' },
-        include: { _count: { select: { contracts: true, followUps: true } } },
+        include: {
+          _count: { select: { contracts: true, followUps: true } },
+          contracts: {
+            select: {
+              id: true,
+              contractNo: true,
+              unit: { select: { project: { select: { id: true, name: true } } } },
+            },
+          },
+        },
       }),
       prisma.customer.count({ where }),
     ])
-    return { data, total, page, pageSize }
+    return { data, total, page: Number(page), pageSize: Number(pageSize) }
   })
 
   // 新增

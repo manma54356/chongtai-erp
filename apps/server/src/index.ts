@@ -2,10 +2,23 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
 import authenticate from './plugins/authenticate.js'
-import authRoutes from './routes/auth.js'
-import projectRoutes from './routes/projects.js'
-import customerRoutes from './routes/customers.js'
-import contractRoutes from './routes/contracts.js'
+import authRoutes      from './routes/auth.js'
+import projectRoutes   from './routes/projects.js'
+import unitRoutes      from './routes/units.js'
+import milestoneRoutes from './routes/milestones.js'
+import customerRoutes  from './routes/customers.js'
+import contractRoutes  from './routes/contracts.js'
+import vendorRoutes    from './routes/vendors.js'
+import payableRoutes   from './routes/payables.js'
+import accountRoutes   from './routes/accounts.js'
+import journalRoutes   from './routes/journal.js'
+import userRoutes      from './routes/users.js'
+import dashboardRoutes from './routes/dashboard.js'
+import budgetRoutes    from './routes/budget.js'
+import auditLogRoutes           from './routes/auditLogs.js'
+import paymentRequestRoutes     from './routes/paymentRequests.js'
+import accountingPeriodRoutes   from './routes/accountingPeriods.js'
+import invoiceRoutesDef         from './routes/invoiceRoutes.js'
 
 const app = Fastify({ logger: true })
 
@@ -13,10 +26,24 @@ await app.register(cors, { origin: process.env.FRONTEND_URL ?? true })
 await app.register(jwt, { secret: process.env.JWT_SECRET ?? 'dev-secret-min-32-characters-here' })
 await app.register(authenticate)
 
-await app.register(authRoutes,     { prefix: '/api' })
-await app.register(projectRoutes,  { prefix: '/api' })
-await app.register(customerRoutes, { prefix: '/api' })
-await app.register(contractRoutes, { prefix: '/api' })
+const prefix = { prefix: '/api' }
+await app.register(authRoutes,      prefix)
+await app.register(projectRoutes,   prefix)
+await app.register(unitRoutes,      prefix)
+await app.register(milestoneRoutes, prefix)
+await app.register(customerRoutes,  prefix)
+await app.register(contractRoutes,  prefix)
+await app.register(vendorRoutes,    prefix)
+await app.register(payableRoutes,   prefix)
+await app.register(accountRoutes,   prefix)
+await app.register(journalRoutes,   prefix)
+await app.register(userRoutes,      prefix)
+await app.register(dashboardRoutes, prefix)
+await app.register(budgetRoutes,    prefix)
+await app.register(auditLogRoutes,         prefix)
+await app.register(paymentRequestRoutes,   prefix)
+await app.register(accountingPeriodRoutes, prefix)
+await app.register(invoiceRoutesDef,       prefix)
 
 app.get('/health', async () => ({ status: 'ok' }))
 
