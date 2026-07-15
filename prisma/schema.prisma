@@ -31,6 +31,7 @@ model Company {
   reminderRules      ReminderRule[]
   paymentRequests    PaymentRequest[]
   accountingPeriods  AccountingPeriod[]
+  expenseCategories  ExpenseCategory[]
 }
 
 model User {
@@ -833,6 +834,21 @@ enum PRStatus {
   APPROVED
   REJECTED
   PAID
+}
+
+// ═══════════════════════════════════════════
+// 費用類別（自訂）
+// ═══════════════════════════════════════════
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, name])
 }
 
 // ═══════════════════════════════════════════
