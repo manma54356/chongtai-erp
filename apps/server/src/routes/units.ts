@@ -41,6 +41,7 @@ export default async function unitRoutes(app: FastifyInstance) {
     const items = z.array(schema).parse(req.body)
     await prisma.unit.createMany({
       data: items.map(i => ({ ...i, projectId,
+        code: i.code!,
         area: i.area ? new Decimal(i.area) : undefined,
         listPrice: i.listPrice ? new Decimal(i.listPrice) : undefined,
       })),

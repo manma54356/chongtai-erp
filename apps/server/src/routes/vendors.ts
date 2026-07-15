@@ -23,7 +23,7 @@ export default async function vendorRoutes(app: FastifyInstance) {
 
   app.post('/vendors', auth, async (req, reply) => {
     const body = schema.parse(req.body)
-    const vendor = await prisma.vendor.create({ data: { ...body, companyId: req.companyId } })
+    const vendor = await prisma.vendor.create({ data: { ...body, companyId: req.companyId } as any })
     return reply.code(201).send(vendor)
   })
 
