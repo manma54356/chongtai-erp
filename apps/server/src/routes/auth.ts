@@ -103,7 +103,43 @@ export default async function authRoutes(app: FastifyInstance) {
       where: { id: req.userId },
       select: { id: true, name: true, email: true, phone: true },
     })
-    return { user, companyId: req.companyId, role: req.role }
+    const membership = await prisma.userCompanyRole.findUnique({
+      where: { userId_companyId: { userId: req.userId, companyId: req.companyId } },
+      select: { features: true },
+    })
+    return { user, companyId: req.companyId, role: req.role, features: membership?.features ?? [] }
+  })
+
+  // ── 修改密碼 ──────────────────────────────────────────
+  app.put('/auth/password', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string }
+    if (!newPassword || newPassword.length < 8) {
+      return reply.code(400).send({ message: '新密碼至少需要 8 個字元' })
+    }
+    const user = await prisma.user.findUnique({ where: { id: req.userId } })
+    if (!user) return reply.code(404).send({ message: '找不到使用者' })
+    const valid = await verifyPassword(currentPassword, user.passwordHash)
+    if (!valid) return reply.code(400).send({ message: '目前密碼錯誤' })
+    await prisma.user.update({
+      where: { id: req.userId },
+      data: { passwordHash: await hashPassword(newPassword) },
+    })
+    return { message: '密碼已更新' }
+  })
+
+  // ── 修改個人資料（名稱 / Email）──────────────────────
+  app.put('/auth/profile', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { name, email } = req.body as { name?: string; email?: string }
+    if (email) {
+      const exists = await prisma.user.findFirst({ where: { email, NOT: { id: req.userId } } })
+      if (exists) return reply.code(400).send({ message: '此 Email 已被使用' })
+    }
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: { ...(name ? { name } : {}), ...(email ? { email } : {}) },
+      select: { id: true, name: true, email: true },
+    })
+    return user
   })
 
   // ── Refresh token ─────────────────────────────────────

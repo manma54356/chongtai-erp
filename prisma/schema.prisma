@@ -21,14 +21,16 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users           UserCompanyRole[]
-  projects        Project[]
-  customers       Customer[]
-  vendors         Vendor[]
-  chartOfAccounts ChartOfAccount[]
-  bankAccounts    BankAccount[]
-  journalEntries  JournalEntry[]
-  reminderRules   ReminderRule[]
+  users              UserCompanyRole[]
+  projects           Project[]
+  customers          Customer[]
+  vendors            Vendor[]
+  chartOfAccounts    ChartOfAccount[]
+  bankAccounts       BankAccount[]
+  journalEntries     JournalEntry[]
+  reminderRules      ReminderRule[]
+  paymentRequests    PaymentRequest[]
+  accountingPeriods  AccountingPeriod[]
 }
 
 model User {
@@ -41,11 +43,14 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  companies UserCompanyRole[]
-  contracts Contract[]        @relation("SalesPerson")
-  followUps CustomerFollowUp[]
-  approvals Approval[]
-  auditLogs AuditLog[]
+  companies              UserCompanyRole[]
+  contracts              Contract[]        @relation("SalesPerson")
+  followUps              CustomerFollowUp[]
+  approvals              Approval[]
+  auditLogs              AuditLog[]
+  paymentRequestsMade    PaymentRequest[]  @relation("PRRequester")
+  paymentRequestsApproved PaymentRequest[] @relation("PRApprover")
+  accountingPeriodsClosed AccountingPeriod[]
 }
 
 model UserCompanyRole {
@@ -53,6 +58,7 @@ model UserCompanyRole {
   userId    String
   companyId String
   role      UserRole
+  features  String[] @default([])
   createdAt DateTime @default(now())
 
   user    User    @relation(fields: [userId], references: [id])
@@ -794,4 +800,62 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+}
+
+// ═══════════════════════════════════════════
+// 請款
+// ═══════════════════════════════════════════
+
+model PaymentRequest {
+  id           String    @id @default(cuid())
+  companyId    String
+  requesterId  String
+  prNo         String
+  category     String
+  description  String
+  amount       Decimal   @db.Decimal(15, 0)
+  projectId    String?
+  status       PRStatus  @default(PENDING)
+  notes        String?
+  approvedById String?
+  approvedAt   DateTime?
+  paidAt       DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  company    Company @relation(fields: [companyId], references: [id])
+  requester  User    @relation("PRRequester", fields: [requesterId], references: [id])
+  approvedBy User?   @relation("PRApprover", fields: [approvedById], references: [id])
+}
+
+enum PRStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+// ═══════════════════════════════════════════
+// 關帳期間
+// ═══════════════════════════════════════════
+
+model AccountingPeriod {
+  id         String       @id @default(cuid())
+  companyId  String
+  year       Int
+  month      Int
+  status     PeriodStatus @default(OPEN)
+  closedById String?
+  closedAt   DateTime?
+  createdAt  DateTime     @default(now())
+
+  company  Company @relation(fields: [companyId], references: [id])
+  closedBy User?   @relation(fields: [closedById], references: [id])
+
+  @@unique([companyId, year, month])
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
 }

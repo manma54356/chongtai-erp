@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import Decimal from 'decimal.js'
+import { createAuditLog } from '../lib/auditLog.js'
 
 const createSchema = z.object({
   contractNo: z.string().min(1),
@@ -37,15 +38,16 @@ export default async function contractRoutes(app: FastifyInstance) {
 
   // 列表
   app.get('/contracts', auth, async (req) => {
-    const { page = 1, pageSize = 20, status, customerId } = req.query as any
-    const where = {
+    const { page = 1, pageSize = 20, status, customerId, projectId } = req.query as any
+    const where: any = {
       companyId: req.companyId,
       ...(status ? { status } : {}),
       ...(customerId ? { customerId } : {}),
+      ...(projectId ? { unit: { projectId } } : {}),
     }
     const [data, total] = await Promise.all([
       prisma.contract.findMany({
-        where, skip: (page - 1) * pageSize, take: pageSize,
+        where, skip: (page - 1) * pageSize, take: Number(pageSize),
         orderBy: { createdAt: 'desc' },
         include: {
           customer: { select: { id: true, name: true, phone: true } },
@@ -76,6 +78,11 @@ export default async function contractRoutes(app: FastifyInstance) {
     })
     // 更新戶別狀態
     await prisma.unit.update({ where: { id: body.unitId }, data: { status: 'RESERVED' } })
+    await createAuditLog({
+      companyId: req.companyId, userId: req.userId,
+      action: 'CREATE', targetType: 'CONTRACT', targetId: contract.id,
+      after: { contractNo: contract.contractNo, totalPrice: body.totalPrice, unitId: body.unitId, customerId: body.customerId },
+    })
     return reply.code(201).send(contract)
   })
 
@@ -103,10 +110,14 @@ export default async function contractRoutes(app: FastifyInstance) {
     const exists = await prisma.contract.findFirst({ where: { id, companyId: req.companyId } })
     if (!exists) return reply.code(404).send({ message: '找不到此合約' })
     const contract = await prisma.contract.update({ where: { id }, data: { status: status as any } })
-    // 交屋時更新戶別狀態
     if (status === 'DELIVERED') {
       await prisma.unit.update({ where: { id: exists.unitId }, data: { status: 'DELIVERED' } })
     }
+    await createAuditLog({
+      companyId: req.companyId, userId: req.userId,
+      action: 'STATUS_CHANGE', targetType: 'CONTRACT', targetId: id,
+      before: { status: exists.status }, after: { status },
+    })
     return contract
   })
 
