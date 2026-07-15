@@ -34,11 +34,14 @@ export default function PaymentRequestPage() {
   const canPay = role === 'OWNER' || role === 'CASHIER'
   const canManageCat = role === 'OWNER' || role === 'FINANCE_CHIEF'
 
+  const [page, setPage] = useState(1)
+
   const { data, isLoading } = useQuery({
-    queryKey: ['payment-requests', filterStatus],
+    queryKey: ['payment-requests', filterStatus, page],
     queryFn: () => {
-      const params = filterStatus ? `?status=${filterStatus}` : ''
-      return api.get(`/api/payment-requests${params}`).then(r => r.data)
+      const params = new URLSearchParams({ page: String(page), pageSize: '20' })
+      if (filterStatus) params.set('status', filterStatus)
+      return api.get(`/api/payment-requests?${params}`).then(r => r.data)
     },
   })
 
@@ -131,26 +134,26 @@ export default function PaymentRequestPage() {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
-    const buf = await file.arrayBuffer()
-    const wb = XLSX.read(buf, { type: 'array' })
-    const ws = wb.Sheets[wb.SheetNames[0]]
-    const rows: any[] = XLSX.utils.sheet_to_json(ws)
-    if (!rows.length) return message.warning('Excel 中沒有資料')
-    const mapped = rows.map((r, i) => {
-      const prNo = String(r['單號'] ?? '').trim()
-      const category = String(r['費用類別'] ?? '').trim()
-      const description = String(r['說明'] ?? '').trim()
-      const amount = Number(r['金額'])
-      const notes = String(r['備註'] ?? '').trim() || undefined
-      if (!prNo || !category || !description || !amount) {
-        throw new Error(`第 ${i + 2} 列資料不完整（需填：單號、費用類別、說明、金額）`)
-      }
-      return { prNo, category, description, amount, notes }
-    })
     try {
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(buf, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows: any[] = XLSX.utils.sheet_to_json(ws)
+      if (!rows.length) { message.warning('Excel 中沒有資料'); return }
+      const mapped = rows.map((r, i) => {
+        const prNo = String(r['單號'] ?? '').trim()
+        const category = String(r['費用類別'] ?? '').trim()
+        const description = String(r['說明'] ?? '').trim()
+        const amount = Number(r['金額'])
+        const notes = String(r['備註'] ?? '').trim() || undefined
+        if (!prNo || !category || !description || !amount) {
+          throw new Error(`第 ${i + 2} 列資料不完整（需填：單號、費用類別、說明、金額）`)
+        }
+        return { prNo, category, description, amount, notes }
+      })
       importBatch.mutate(mapped)
     } catch (err: any) {
-      message.error(err.message)
+      message.error(err.message ?? 'Excel 解析失敗')
     }
   }
 
@@ -214,7 +217,7 @@ export default function PaymentRequestPage() {
         <Typography.Title level={4} style={{ margin: 0 }}>請款管理</Typography.Title>
         <Space wrap>
           <Select allowClear placeholder="篩選狀態" style={{ width: 120 }}
-            value={filterStatus} onChange={setFilterStatus}
+            value={filterStatus} onChange={v => { setFilterStatus(v); setPage(1) }}
             options={Object.entries(statusLabel).map(([k, v]) => ({ value: k, label: v }))}
           />
           {canManageCat && (
@@ -235,7 +238,7 @@ export default function PaymentRequestPage() {
 
       <Table dataSource={data?.data ?? []} columns={columns} rowKey="id"
         loading={isLoading} scroll={{ x: 1000 }}
-        pagination={{ total: data?.total, pageSize: 20 }} />
+        pagination={{ total: data?.total, pageSize: 20, current: page, onChange: setPage }} />
 
       {/* 新增請款單 Modal */}
       <Modal title="新增請款單" open={open} onCancel={() => { setOpen(false); form.resetFields() }}

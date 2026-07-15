@@ -24,7 +24,10 @@ export default async function journalRoutes(app: FastifyInstance) {
   const auth = { preHandler: [app.authenticate] }
 
   app.get('/journal', auth, async (req) => {
-    const { page = 1, pageSize = 20, projectId, status } = req.query as any
+    // P1: convert querystring values to numbers
+    const page = Number((req.query as any).page ?? 1)
+    const pageSize = Number((req.query as any).pageSize ?? 20)
+    const { projectId, status } = req.query as any
     const where = {
       companyId: req.companyId,
       ...(projectId ? { projectId } : {}),

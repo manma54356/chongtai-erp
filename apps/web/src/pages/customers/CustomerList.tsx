@@ -19,6 +19,7 @@ export default function CustomerList() {
   const [open, setOpen] = useState(false)
   const [keyword, setKeyword] = useState('')
   const [projectId, setProjectId] = useState<string | undefined>()
+  const [page, setPage] = useState(1)
   const [form] = Form.useForm()
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -29,13 +30,12 @@ export default function CustomerList() {
   })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['customers', keyword, projectId],
+    queryKey: ['customers', keyword, projectId, page],
     queryFn: () => {
-      const params = new URLSearchParams()
+      const params = new URLSearchParams({ page: String(page), pageSize: '20' })
       if (keyword) params.set('keyword', keyword)
       if (projectId) params.set('projectId', projectId)
-      const qs = params.toString()
-      return api.get(`/api/customers${qs ? `?${qs}` : ''}`).then(r => r.data)
+      return api.get(`/api/customers?${params}`).then(r => r.data)
     },
   })
 
@@ -75,17 +75,18 @@ export default function CustomerList() {
             allowClear placeholder="篩選案件"
             style={{ width: 180 }}
             value={projectId}
-            onChange={v => setProjectId(v)}
+            onChange={v => { setProjectId(v); setPage(1) }}
             options={(projects ?? []).map((p: any) => ({ value: p.id, label: p.name }))}
           />
           <Input placeholder="搜尋姓名/電話" prefix={<SearchOutlined />}
-            onChange={e => setKeyword(e.target.value)} style={{ width: 180 }} />
+            onChange={e => { setKeyword(e.target.value); setPage(1) }} style={{ width: 180 }} />
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>新增客戶</Button>
         </Space>
       </div>
 
       <Table dataSource={data?.data ?? []} columns={columns} rowKey="id"
-        loading={isLoading} pagination={{ total: data?.total, pageSize: 20 }}
+        loading={isLoading}
+        pagination={{ total: data?.total, pageSize: 20, current: page, onChange: setPage }}
         onRow={(r: any) => ({ onClick: () => navigate(`/customers/${r.id}`), style: { cursor: 'pointer' } })} />
 
       <Modal title="新增客戶" open={open} onCancel={() => setOpen(false)}

@@ -33,12 +33,33 @@ const scheduleSchema = z.array(z.object({
   notes: z.string().optional(),
 }))
 
+// P1: valid contract status enum with legal transitions
+const CONTRACT_STATUS_ENUM = z.enum([
+  'NEGOTIATING','DEPOSITED','SIGNED','SEALED',
+  'LOAN_APPROVED','READY_DELIVER','DELIVERED','WARRANTY','CLOSED',
+])
+
+// Legal forward transitions (any status can be reached from prior ones)
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  NEGOTIATING:   ['DEPOSITED','SIGNED','SEALED','LOAN_APPROVED','READY_DELIVER','DELIVERED','WARRANTY','CLOSED'],
+  DEPOSITED:     ['SIGNED','SEALED','LOAN_APPROVED','READY_DELIVER','DELIVERED','WARRANTY','CLOSED'],
+  SIGNED:        ['SEALED','LOAN_APPROVED','READY_DELIVER','DELIVERED','WARRANTY','CLOSED'],
+  SEALED:        ['LOAN_APPROVED','READY_DELIVER','DELIVERED','WARRANTY','CLOSED'],
+  LOAN_APPROVED: ['READY_DELIVER','DELIVERED','WARRANTY','CLOSED'],
+  READY_DELIVER: ['DELIVERED','WARRANTY','CLOSED'],
+  DELIVERED:     ['WARRANTY','CLOSED'],
+  WARRANTY:      ['CLOSED'],
+  CLOSED:        [],
+}
+
 export default async function contractRoutes(app: FastifyInstance) {
   const auth = { preHandler: [app.authenticate] }
 
   // 列表
   app.get('/contracts', auth, async (req) => {
-    const { page = 1, pageSize = 20, status, customerId, projectId } = req.query as any
+    const page = Number((req.query as any).page ?? 1)
+    const pageSize = Number((req.query as any).pageSize ?? 20)
+    const { status, customerId, projectId } = req.query as any
     const where: any = {
       companyId: req.companyId,
       ...(status ? { status } : {}),
@@ -47,7 +68,7 @@ export default async function contractRoutes(app: FastifyInstance) {
     }
     const [data, total] = await Promise.all([
       prisma.contract.findMany({
-        where, skip: (page - 1) * pageSize, take: Number(pageSize),
+        where, skip: (page - 1) * pageSize, take: pageSize,
         orderBy: { createdAt: 'desc' },
         include: {
           customer: { select: { id: true, name: true, phone: true } },
@@ -103,13 +124,19 @@ export default async function contractRoutes(app: FastifyInstance) {
     return contract
   })
 
-  // 更新狀態
+  // P1: use zod enum + legal transition validation
   app.put('/contracts/:id/status', auth, async (req, reply) => {
     const { id } = req.params as { id: string }
-    const { status } = req.body as { status: string }
+    const { status } = z.object({ status: CONTRACT_STATUS_ENUM }).parse(req.body)
     const exists = await prisma.contract.findFirst({ where: { id, companyId: req.companyId } })
     if (!exists) return reply.code(404).send({ message: '找不到此合約' })
-    const contract = await prisma.contract.update({ where: { id }, data: { status: status as any } })
+
+    const allowed = VALID_TRANSITIONS[exists.status] ?? []
+    if (!allowed.includes(status)) {
+      return reply.code(400).send({ message: `不能從 ${exists.status} 轉換到 ${status}` })
+    }
+
+    const contract = await prisma.contract.update({ where: { id }, data: { status } })
     if (status === 'DELIVERED') {
       await prisma.unit.update({ where: { id: exists.unitId }, data: { status: 'DELIVERED' } })
     }
@@ -157,10 +184,26 @@ export default async function contractRoutes(app: FastifyInstance) {
     return reply.code(201).send({ message: `已建立 ${schedules.length} 筆付款排程` })
   })
 
-  // 記錄收款
+  // P0: verify schedule belongs to this contract + validate amount
   app.put('/contracts/:id/schedules/:scheduleId/receive', auth, async (req, reply) => {
-    const { scheduleId } = req.params as { id: string; scheduleId: string }
-    const { receivedAmount, receivedDate, trustConfirmed } = req.body as any
+    const { id, scheduleId } = req.params as { id: string; scheduleId: string }
+
+    // Verify contract belongs to this company
+    const contract = await prisma.contract.findFirst({ where: { id, companyId: req.companyId } })
+    if (!contract) return reply.code(404).send({ message: '找不到此合約' })
+
+    // Verify schedule belongs to this contract
+    const schedule = await prisma.paymentSchedule.findFirst({
+      where: { id: scheduleId, contractId: id },
+    })
+    if (!schedule) return reply.code(404).send({ message: '找不到此收款排程' })
+
+    const { receivedAmount, receivedDate, trustConfirmed } = z.object({
+      receivedAmount: z.number().positive(),
+      receivedDate: z.string(),
+      trustConfirmed: z.boolean().optional(),
+    }).parse(req.body)
+
     const updated = await prisma.paymentSchedule.update({
       where: { id: scheduleId },
       data: {

@@ -35,7 +35,7 @@ export default async function milestoneRoutes(app: FastifyInstance) {
     return reply.code(201).send({ message: `已建立 ${items.length} 個里程碑` })
   })
 
-  // 更新里程碑狀態/實際日期
+  // P0: verify milestone belongs to this company before updating
   app.put('/milestones/:id', auth, async (req, reply) => {
     const { id } = req.params as any
     const body = z.object({
@@ -43,6 +43,11 @@ export default async function milestoneRoutes(app: FastifyInstance) {
       actualDate: z.string().optional(),
       completionPct: z.number().int().min(0).max(100).optional(),
     }).parse(req.body)
+
+    const existing = await prisma.projectMilestone.findFirst({
+      where: { id, project: { companyId: req.companyId } },
+    })
+    if (!existing) return reply.code(404).send({ message: '找不到此里程碑' })
 
     const milestone = await prisma.projectMilestone.update({
       where: { id },

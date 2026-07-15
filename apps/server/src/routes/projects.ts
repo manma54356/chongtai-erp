@@ -21,7 +21,10 @@ export default async function projectRoutes(app: FastifyInstance) {
 
   // 列表
   app.get('/projects', auth, async (req) => {
-    const { page = 1, pageSize = 20, status } = req.query as any
+    // P1: convert querystring values to numbers
+    const page = Number((req.query as any).page ?? 1)
+    const pageSize = Number((req.query as any).pageSize ?? 20)
+    const { status } = req.query as any
     const where = {
       companyId: req.companyId,
       ...(status ? { status } : {}),

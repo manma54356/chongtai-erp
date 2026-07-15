@@ -37,10 +37,8 @@ export default async function budgetRoutes(app: FastifyInstance) {
 
     const [budgets, costs] = await Promise.all([
       prisma.projectBudget.findMany({ where: { projectId } }),
-      prisma.projectCost.findMany({
-        where: { projectId },
-        include: { project: false },
-      }),
+      // P1: removed invalid vendor include (ProjectCost has no vendor relation in schema)
+      prisma.projectCost.findMany({ where: { projectId } }),
     ])
 
     const summary = CATEGORIES.map(cat => {
@@ -65,9 +63,11 @@ export default async function budgetRoutes(app: FastifyInstance) {
     return { project, summary, totalBudget, totalActual, totalVariance: totalBudget - totalActual }
   })
 
-  // 設定/更新預算
+  // P0: verify project belongs to company before upsert
   app.put('/projects/:projectId/budget', auth, async (req, reply) => {
     const { projectId } = req.params as { projectId: string }
+    const project = await prisma.project.findFirst({ where: { id: projectId, companyId: req.companyId } })
+    if (!project) return reply.code(404).send({ message: '找不到建案' })
     const body = budgetSchema.parse(req.body)
     const result = await prisma.projectBudget.upsert({
       where: { projectId_category: { projectId, category: body.category } },
@@ -77,21 +77,24 @@ export default async function budgetRoutes(app: FastifyInstance) {
     return result
   })
 
-  // 費用列表
+  // P0: verify project belongs to company
   app.get('/projects/:projectId/costs', auth, async (req, reply) => {
     const { projectId } = req.params as { projectId: string }
+    const project = await prisma.project.findFirst({ where: { id: projectId, companyId: req.companyId } })
+    if (!project) return reply.code(404).send({ message: '找不到建案' })
     const { category } = req.query as any
     const costs = await prisma.projectCost.findMany({
       where: { projectId, ...(category ? { category } : {}) },
       orderBy: { costDate: 'desc' },
-      include: { vendor: { select: { id: true, name: true } } } as any,
     })
     return costs
   })
 
-  // 登錄費用
+  // P0: verify project belongs to company
   app.post('/projects/:projectId/costs', auth, async (req, reply) => {
     const { projectId } = req.params as { projectId: string }
+    const project = await prisma.project.findFirst({ where: { id: projectId, companyId: req.companyId } })
+    if (!project) return reply.code(404).send({ message: '找不到建案' })
     const body = costSchema.parse(req.body)
     const cost = await prisma.projectCost.create({
       data: { projectId, ...body, costDate: new Date(body.costDate), amount: body.amount },
@@ -99,9 +102,13 @@ export default async function budgetRoutes(app: FastifyInstance) {
     return reply.code(201).send(cost)
   })
 
-  // 刪除費用
+  // P0: verify both projectId and costId belong to this company
   app.delete('/projects/:projectId/costs/:costId', auth, async (req, reply) => {
-    const { costId } = req.params as { projectId: string; costId: string }
+    const { projectId, costId } = req.params as { projectId: string; costId: string }
+    const project = await prisma.project.findFirst({ where: { id: projectId, companyId: req.companyId } })
+    if (!project) return reply.code(404).send({ message: '找不到建案' })
+    const cost = await prisma.projectCost.findFirst({ where: { id: costId, projectId } })
+    if (!cost) return reply.code(404).send({ message: '找不到此費用' })
     await prisma.projectCost.delete({ where: { id: costId } })
     return reply.code(204).send()
   })

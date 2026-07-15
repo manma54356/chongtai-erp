@@ -7,13 +7,14 @@ import dayjs from 'dayjs'
 
 export default function JournalPage() {
   const [open, setOpen] = useState(false)
+  const [page, setPage] = useState(1)
   const [lines, setLines] = useState([{ order: 1, accountId: '', debit: 0, credit: 0, description: '' }])
   const [form] = Form.useForm()
   const qc = useQueryClient()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['journal'],
-    queryFn: () => api.get('/api/journal').then(r => r.data),
+    queryKey: ['journal', page],
+    queryFn: () => api.get(`/api/journal?page=${page}&pageSize=20`).then(r => r.data),
   })
   const { data: accounts } = useQuery({
     queryKey: ['accounts'],
@@ -71,7 +72,7 @@ export default function JournalPage() {
             />
           ),
         }}
-        pagination={{ total: data?.total, pageSize: 20 }} />
+        pagination={{ total: data?.total, pageSize: 20, current: page, onChange: setPage }} />
 
       <Modal title="新增傳票" open={open} onCancel={() => setOpen(false)} width={700}
         onOk={() => { if (balanced) form.submit() }} okButtonProps={{ disabled: !balanced }}

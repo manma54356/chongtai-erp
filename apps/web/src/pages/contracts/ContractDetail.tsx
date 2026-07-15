@@ -6,7 +6,8 @@ import { api } from '../../lib/api'
 import dayjs from 'dayjs'
 import { useState } from 'react'
 
-const statusSteps = ['NEGOTIATING','DEPOSITED','SIGNED','SEALED','LOAN_APPROVED','READY_DELIVER','DELIVERED','WARRANTY']
+// P1: CLOSED added to statusSteps so contracts can be closed via UI
+const statusSteps = ['NEGOTIATING','DEPOSITED','SIGNED','SEALED','LOAN_APPROVED','READY_DELIVER','DELIVERED','WARRANTY','CLOSED']
 const statusLabel: Record<string, string> = {
   NEGOTIATING: '洽談中', DEPOSITED: '已下訂', SIGNED: '已簽約', SEALED: '用印完成',
   LOAN_APPROVED: '貸款核准', READY_DELIVER: '待交屋', DELIVERED: '已交屋', WARRANTY: '保固中', CLOSED: '結案',
@@ -60,6 +61,7 @@ export default function ContractDetail() {
     },
   ]
 
+  // Show up to next 2 statuses from current position
   const nextStatuses = statusSteps.slice(currentStep + 1, currentStep + 3)
 
   return (

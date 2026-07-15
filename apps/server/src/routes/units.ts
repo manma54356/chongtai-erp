@@ -50,8 +50,13 @@ export default async function unitRoutes(app: FastifyInstance) {
     return reply.code(201).send({ message: `已建立 ${items.length} 筆戶別` })
   })
 
+  // P0: verify unit belongs to this company before updating
   app.put('/units/:id', auth, async (req, reply) => {
     const { id } = req.params as any
+    const unit = await prisma.unit.findFirst({
+      where: { id, project: { companyId: req.companyId } },
+    })
+    if (!unit) return reply.code(404).send({ message: '找不到此戶別' })
     const body = schema.partial().parse(req.body)
     return prisma.unit.update({ where: { id }, data: {
       ...body,
