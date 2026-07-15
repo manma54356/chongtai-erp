@@ -1,6 +1,7 @@
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
+COPY tsconfig.json ./
 COPY apps/server/package*.json ./apps/server/
 RUN npm install --workspace=apps/server --ignore-scripts
 COPY prisma ./prisma/

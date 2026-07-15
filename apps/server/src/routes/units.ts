@@ -40,11 +40,11 @@ export default async function unitRoutes(app: FastifyInstance) {
     if (!project) return reply.code(404).send({ message: '找不到建案' })
     const items = z.array(schema).parse(req.body)
     await prisma.unit.createMany({
-      data: items.map(i => ({ ...i, projectId,
+      data: (items.map(i => ({ ...i, projectId,
         code: i.code!,
         area: i.area ? new Decimal(i.area) : undefined,
         listPrice: i.listPrice ? new Decimal(i.listPrice) : undefined,
-      })),
+      }))) as any,
       skipDuplicates: true,
     })
     return reply.code(201).send({ message: `已建立 ${items.length} 筆戶別` })
