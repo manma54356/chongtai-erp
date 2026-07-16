@@ -34,14 +34,11 @@ export default function PaymentRequestPage() {
   const canPay = role === 'OWNER' || role === 'CASHIER'
   const canManageCat = role === 'OWNER' || role === 'FINANCE_CHIEF'
 
-  const [page, setPage] = useState(1)
-
   const { data, isLoading } = useQuery({
-    queryKey: ['payment-requests', filterStatus, page],
+    queryKey: ['payment-requests', filterStatus],
     queryFn: () => {
-      const params = new URLSearchParams({ page: String(page), pageSize: '20' })
-      if (filterStatus) params.set('status', filterStatus)
-      return api.get(`/api/payment-requests?${params}`).then(r => r.data)
+      const params = filterStatus ? `?status=${filterStatus}` : ''
+      return api.get(`/api/payment-requests${params}`).then(r => r.data)
     },
   })
 
@@ -50,10 +47,10 @@ export default function PaymentRequestPage() {
     queryFn: () => api.get('/api/expense-categories').then(r => r.data),
   })
 
-  const allCategories: string[] = [
-    ...(catData?.defaults ?? []),
-    ...(catData?.custom?.map((c: any) => c.name) ?? []),
-  ]
+  const FALLBACK_CATEGORIES = ['差旅費', '材料費', '設備費', '勞務費', '行政費用', '其他']
+  const allCategories: string[] = catData
+    ? [...(catData.defaults ?? []), ...(catData.custom?.map((c: any) => c.name) ?? [])]
+    : FALLBACK_CATEGORIES
 
   const addCat = useMutation({
     mutationFn: (name: string) => api.post('/api/expense-categories', { name }),
@@ -77,7 +74,6 @@ export default function PaymentRequestPage() {
   const create = useMutation({
     mutationFn: (v: any) => api.post('/api/payment-requests', v),
     onSuccess: () => {
-      setPage(1)
       qc.invalidateQueries({ queryKey: ['payment-requests'] })
       message.success('請款單已送出')
       setOpen(false)
@@ -89,7 +85,6 @@ export default function PaymentRequestPage() {
   const importBatch = useMutation({
     mutationFn: (rows: any[]) => api.post('/api/payment-requests/import', rows),
     onSuccess: (res) => {
-      setPage(1)
       qc.invalidateQueries({ queryKey: ['payment-requests'] })
       message.success(`成功匯入 ${res.data.count} 筆`)
     },
@@ -136,26 +131,26 @@ export default function PaymentRequestPage() {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
+    const buf = await file.arrayBuffer()
+    const wb = XLSX.read(buf, { type: 'array' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const rows: any[] = XLSX.utils.sheet_to_json(ws)
+    if (!rows.length) return message.warning('Excel 中沒有資料')
+    const mapped = rows.map((r, i) => {
+      const prNo = String(r['單號'] ?? '').trim()
+      const category = String(r['費用類別'] ?? '').trim()
+      const description = String(r['說明'] ?? '').trim()
+      const amount = Number(r['金額'])
+      const notes = String(r['備註'] ?? '').trim() || undefined
+      if (!prNo || !category || !description || !amount) {
+        throw new Error(`第 ${i + 2} 列資料不完整（需填：單號、費用類別、說明、金額）`)
+      }
+      return { prNo, category, description, amount, notes }
+    })
     try {
-      const buf = await file.arrayBuffer()
-      const wb = XLSX.read(buf, { type: 'array' })
-      const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows: any[] = XLSX.utils.sheet_to_json(ws)
-      if (!rows.length) { message.warning('Excel 中沒有資料'); return }
-      const mapped = rows.map((r, i) => {
-        const prNo = String(r['單號'] ?? '').trim()
-        const category = String(r['費用類別'] ?? '').trim()
-        const description = String(r['說明'] ?? '').trim()
-        const amount = Number(r['金額'])
-        const notes = String(r['備註'] ?? '').trim() || undefined
-        if (!prNo || !category || !description || !amount) {
-          throw new Error(`第 ${i + 2} 列資料不完整（需填：單號、費用類別、說明、金額）`)
-        }
-        return { prNo, category, description, amount, notes }
-      })
       importBatch.mutate(mapped)
     } catch (err: any) {
-      message.error(err.message ?? 'Excel 解析失敗')
+      message.error(err.message)
     }
   }
 
@@ -219,7 +214,7 @@ export default function PaymentRequestPage() {
         <Typography.Title level={4} style={{ margin: 0 }}>請款管理</Typography.Title>
         <Space wrap>
           <Select allowClear placeholder="篩選狀態" style={{ width: 120 }}
-            value={filterStatus} onChange={v => { setFilterStatus(v); setPage(1) }}
+            value={filterStatus} onChange={setFilterStatus}
             options={Object.entries(statusLabel).map(([k, v]) => ({ value: k, label: v }))}
           />
           {canManageCat && (
@@ -240,7 +235,7 @@ export default function PaymentRequestPage() {
 
       <Table dataSource={data?.data ?? []} columns={columns} rowKey="id"
         loading={isLoading} scroll={{ x: 1000 }}
-        pagination={{ total: data?.total, pageSize: 20, current: page, onChange: setPage }} />
+        pagination={{ total: data?.total, pageSize: 20 }} />
 
       {/* 新增請款單 Modal */}
       <Modal title="新增請款單" open={open} onCancel={() => { setOpen(false); form.resetFields() }}
