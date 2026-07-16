@@ -14,7 +14,7 @@ export default function JournalPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['journal', page],
-    queryFn: () => api.get(`/api/journal?page=${page}&pageSize=20`).then(r => r.data),
+    queryFn: () => api.get(`/api/journal?page=${page}`).then(r => r.data),
   })
   const { data: accounts } = useQuery({
     queryKey: ['accounts'],
