@@ -32,7 +32,7 @@ export default function CustomerList() {
   const { data, isLoading } = useQuery({
     queryKey: ['customers', keyword, projectId, page],
     queryFn: () => {
-      const params = new URLSearchParams({ page: String(page), pageSize: '20' })
+      const params = new URLSearchParams({ page: String(page) })
       if (keyword) params.set('keyword', keyword)
       if (projectId) params.set('projectId', projectId)
       return api.get(`/api/customers?${params}`).then(r => r.data)
