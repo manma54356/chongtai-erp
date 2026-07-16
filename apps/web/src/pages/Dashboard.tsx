@@ -18,11 +18,11 @@ const statusLabel: Record<string, string> = {
 export default function Dashboard() {
   const { data: projects } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => api.get('/api/projects?pageSize=100').then(r => r.data),
+    queryFn: () => api.get('/api/projects').then(r => r.data),
   })
   const { data: customers } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => api.get('/api/customers?pageSize=100').then(r => r.data),
+    queryFn: () => api.get('/api/customers').then(r => r.data),
   })
   const { data: contracts } = useQuery({
     queryKey: ['contracts'],
