@@ -16,7 +16,7 @@ export default function AccountPayablePage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['payables', page],
-    queryFn: () => api.get(`/api/payables?page=${page}&pageSize=20`).then(r => r.data),
+    queryFn: () => api.get(`/api/payables?page=${page}`).then(r => r.data),
   })
   const { data: vendors } = useQuery({
     queryKey: ['vendors'],
