@@ -49,6 +49,7 @@ export default function InvoicePage() {
       issueDate: v.issueDate.format('YYYY-MM-DD'),
     }),
     onSuccess: () => {
+      setPage(1)
       qc.invalidateQueries({ queryKey: ['invoices'] })
       message.success('發票已開立')
       setOpen(false)

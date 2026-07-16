@@ -25,7 +25,7 @@ export default function AccountPayablePage() {
 
   const create = useMutation({
     mutationFn: (v: any) => api.post('/api/payables', v),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payables'] }); setOpen(false); form.resetFields() },
+    onSuccess: () => { setPage(1); qc.invalidateQueries({ queryKey: ['payables'] }); setOpen(false); form.resetFields() },
   })
   const approve = useMutation({
     mutationFn: (id: string) => api.put(`/api/payables/${id}/approve`),

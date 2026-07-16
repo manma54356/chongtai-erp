@@ -94,6 +94,7 @@ export default async function authRoutes(app: FastifyInstance) {
       user: { id: user.id, name: user.name, email: user.email },
       company: membership.company,
       role: membership.role,
+      features: membership.features ?? [],
     }
   })
 
@@ -107,7 +108,11 @@ export default async function authRoutes(app: FastifyInstance) {
       where: { userId_companyId: { userId: req.userId, companyId: req.companyId } },
       select: { features: true },
     })
-    return { user, companyId: req.companyId, role: req.role, features: membership?.features ?? [] }
+    const company = await prisma.company.findUnique({
+      where: { id: req.companyId },
+      select: { id: true, name: true },
+    })
+    return { user, company, companyId: req.companyId, role: req.role, features: membership?.features ?? [] }
   })
 
   // ── 修改密碼 ──────────────────────────────────────────

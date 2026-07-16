@@ -27,7 +27,7 @@ export default function JournalPage() {
 
   const create = useMutation({
     mutationFn: (v: any) => api.post('/api/journal', { ...v, lines }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['journal'] }); setOpen(false); form.resetFields(); setLines([{ order: 1, accountId: '', debit: 0, credit: 0, description: '' }]) },
+    onSuccess: () => { setPage(1); qc.invalidateQueries({ queryKey: ['journal'] }); setOpen(false); form.resetFields(); setLines([{ order: 1, accountId: '', debit: 0, credit: 0, description: '' }]) },
   })
   const post = useMutation({
     mutationFn: (id: string) => api.put(`/api/journal/${id}/post`),

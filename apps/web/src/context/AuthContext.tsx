@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (state.token) {
       api.get('/api/auth/me')
         .then(({ data }) => {
-          setState(prev => ({ ...prev, user: data.user, role: data.role, features: data.features ?? [] }))
+          setState(prev => ({ ...prev, user: data.user, company: data.company ?? prev.company, role: data.role, features: data.features ?? [] }))
         })
         .catch(() => logout())
         .finally(() => setIsLoading(false))

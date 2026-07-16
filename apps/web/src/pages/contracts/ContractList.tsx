@@ -58,6 +58,7 @@ export default function ContractList() {
       deliveryDate: v.deliveryDate ? v.deliveryDate.format('YYYY-MM-DD') : undefined,
     }),
     onSuccess: (res) => {
+      setPage(1)
       qc.invalidateQueries({ queryKey: ['contracts'] })
       message.success('合約建立成功')
       setOpen(false)

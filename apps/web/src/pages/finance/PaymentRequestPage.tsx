@@ -77,6 +77,7 @@ export default function PaymentRequestPage() {
   const create = useMutation({
     mutationFn: (v: any) => api.post('/api/payment-requests', v),
     onSuccess: () => {
+      setPage(1)
       qc.invalidateQueries({ queryKey: ['payment-requests'] })
       message.success('請款單已送出')
       setOpen(false)
@@ -88,6 +89,7 @@ export default function PaymentRequestPage() {
   const importBatch = useMutation({
     mutationFn: (rows: any[]) => api.post('/api/payment-requests/import', rows),
     onSuccess: (res) => {
+      setPage(1)
       qc.invalidateQueries({ queryKey: ['payment-requests'] })
       message.success(`成功匯入 ${res.data.count} 筆`)
     },

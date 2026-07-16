@@ -41,7 +41,7 @@ export default function CustomerList() {
 
   const create = useMutation({
     mutationFn: (values: any) => api.post('/api/customers', values),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['customers'] }); setOpen(false); form.resetFields() },
+    onSuccess: () => { setPage(1); qc.invalidateQueries({ queryKey: ['customers'] }); setOpen(false); form.resetFields() },
   })
 
   const columns = [

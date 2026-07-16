@@ -84,6 +84,11 @@ export default async function contractRoutes(app: FastifyInstance) {
   // 新增合約
   app.post('/contracts', auth, async (req, reply) => {
     const body = createSchema.parse(req.body)
+    // P0: verify customerId and unitId belong to this company
+    const customer = await prisma.customer.findFirst({ where: { id: body.customerId, companyId: req.companyId } })
+    if (!customer) return reply.code(404).send({ message: '找不到此客戶' })
+    const unit = await prisma.unit.findFirst({ where: { id: body.unitId, project: { companyId: req.companyId } } })
+    if (!unit) return reply.code(404).send({ message: '找不到此戶別' })
     const contract = await prisma.contract.create({
       data: {
         ...body,

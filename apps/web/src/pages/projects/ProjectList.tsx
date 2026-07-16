@@ -30,6 +30,7 @@ export default function ProjectList() {
   const create = useMutation({
     mutationFn: (values: any) => api.post('/api/projects', values),
     onSuccess: () => {
+      setPage(1)
       qc.invalidateQueries({ queryKey: ['projects'] })
       qc.invalidateQueries({ queryKey: ['projects-simple'] })
       setOpen(false)
