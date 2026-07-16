@@ -36,7 +36,7 @@ export default function InvoicePage() {
   const { data, isLoading } = useQuery({
     queryKey: ['invoices', filterType, filterStatus, page],
     queryFn: () => {
-      const params = new URLSearchParams({ page: String(page), pageSize: '20' })
+      const params = new URLSearchParams({ page: String(page) })
       if (filterType) params.set('type', filterType)
       if (filterStatus) params.set('status', filterStatus)
       return api.get(`/api/invoices?${params}`).then(r => r.data)
