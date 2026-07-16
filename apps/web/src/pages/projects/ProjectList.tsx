@@ -24,7 +24,7 @@ export default function ProjectList() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['projects', page],
-    queryFn: () => api.get(`/api/projects?page=${page}&pageSize=20`).then(r => r.data),
+    queryFn: () => api.get(`/api/projects?page=${page}`).then(r => r.data),
   })
 
   const create = useMutation({
