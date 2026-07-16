@@ -44,7 +44,7 @@ export default function ContractList() {
   const { data, isLoading } = useQuery({
     queryKey: ['contracts', filterProjectId, status, page],
     queryFn: () => {
-      const params = new URLSearchParams({ page: String(page), pageSize: '20' })
+      const params = new URLSearchParams({ page: String(page) })
       if (filterProjectId) params.set('projectId', filterProjectId)
       if (status) params.set('status', status)
       return api.get(`/api/contracts?${params}`).then(r => r.data)
