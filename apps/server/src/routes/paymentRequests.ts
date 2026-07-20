@@ -106,6 +106,17 @@ export default async function paymentRequestRoutes(app: FastifyInstance) {
     return pr
   })
 
+  // 批量匯入（Excel上傳後前端解析，傳陣列）
+  app.post('/payment-requests/import', auth, async (req, reply) => {
+    const rows = z.array(createSchema).parse(req.body)
+    const created = await prisma.$transaction(
+      rows.map(body => prisma.paymentRequest.create({
+        data: { ...body, amount: new Decimal(body.amount), companyId: req.companyId, requesterId: req.userId },
+      }))
+    )
+    return reply.code(201).send({ count: created.length })
+  })
+
   // 刪除（只能刪自己的 PENDING 單）
   app.delete('/payment-requests/:id', auth, async (req, reply) => {
     const { id } = req.params as { id: string }

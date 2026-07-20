@@ -6,6 +6,7 @@ import {
   AccountBookOutlined, LogoutOutlined, UserOutlined, SettingOutlined,
   ShopOutlined, AuditOutlined, BankOutlined, SolutionOutlined, PieChartOutlined,
   HistoryOutlined, KeyOutlined, SendOutlined, CalendarOutlined, ProfileOutlined,
+  RobotOutlined,
 } from '@ant-design/icons'
 import { useAuth } from '../context/AuthContext'
 import ChangePasswordModal from './ChangePasswordModal'
@@ -70,7 +71,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     ],
   }] : []
 
-  const menuItems = [...baseMenuItems, ...financeMenu, ...settingsMenu]
+  const aiMenu = [{ key: '/ai/assistant', icon: <RobotOutlined />, label: 'AI 財務助理' }]
+
+  const menuItems = [...baseMenuItems, ...financeMenu, ...aiMenu, ...settingsMenu]
 
   const openKeys = location.pathname.startsWith('/finance')
     ? ['finance']

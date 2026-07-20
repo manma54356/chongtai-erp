@@ -1,10 +1,14 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Table, Tag, Typography, Select, Space, Button, Modal, Form,
-  Input, InputNumber, message, Popconfirm,
+  Input, InputNumber, message, Popconfirm, Divider, Tooltip,
 } from 'antd'
-import { PlusOutlined, CheckOutlined, CloseOutlined, DollarOutlined } from '@ant-design/icons'
+import {
+  PlusOutlined, CheckOutlined, CloseOutlined, DollarOutlined,
+  DownloadOutlined, UploadOutlined, SettingOutlined, DeleteOutlined,
+} from '@ant-design/icons'
+import * as XLSX from 'xlsx'
 import { api } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import dayjs from 'dayjs'
@@ -21,10 +25,14 @@ export default function PaymentRequestPage() {
   const qc = useQueryClient()
   const [filterStatus, setFilterStatus] = useState<string | undefined>()
   const [open, setOpen] = useState(false)
+  const [catOpen, setCatOpen] = useState(false)
+  const [newCatName, setNewCatName] = useState('')
   const [form] = Form.useForm()
+  const importRef = useRef<HTMLInputElement>(null)
 
   const canApprove = role === 'OWNER' || role === 'FINANCE_CHIEF'
   const canPay = role === 'OWNER' || role === 'CASHIER'
+  const canManageCat = role === 'OWNER' || role === 'FINANCE_CHIEF'
 
   const { data, isLoading } = useQuery({
     queryKey: ['payment-requests', filterStatus],
@@ -32,6 +40,35 @@ export default function PaymentRequestPage() {
       const params = filterStatus ? `?status=${filterStatus}` : ''
       return api.get(`/api/payment-requests${params}`).then(r => r.data)
     },
+  })
+
+  const { data: catData, isLoading: catLoading } = useQuery({
+    queryKey: ['expense-categories'],
+    queryFn: () => api.get('/api/expense-categories').then(r => r.data),
+  })
+
+  const FALLBACK_CATEGORIES = ['差旅費', '材料費', '設備費', '勞務費', '行政費用', '其他']
+  const allCategories: string[] = catData
+    ? [...(catData.defaults ?? []), ...(catData.custom?.map((c: any) => c.name) ?? [])]
+    : FALLBACK_CATEGORIES
+
+  const addCat = useMutation({
+    mutationFn: (name: string) => api.post('/api/expense-categories', { name }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expense-categories'] })
+      setNewCatName('')
+      message.success('已新增類別')
+    },
+    onError: (e: any) => message.error(e.response?.data?.message ?? '新增失敗'),
+  })
+
+  const delCat = useMutation({
+    mutationFn: (id: string) => api.delete(`/api/expense-categories/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expense-categories'] })
+      message.success('已刪除類別')
+    },
+    onError: (e: any) => message.error(e.response?.data?.message ?? '刪除失敗'),
   })
 
   const create = useMutation({
@@ -43,6 +80,15 @@ export default function PaymentRequestPage() {
       form.resetFields()
     },
     onError: (e: any) => message.error(e.response?.data?.message ?? '送出失敗'),
+  })
+
+  const importBatch = useMutation({
+    mutationFn: (rows: any[]) => api.post('/api/payment-requests/import', rows),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['payment-requests'] })
+      message.success(`成功匯入 ${res.data.count} 筆`)
+    },
+    onError: (e: any) => message.error(e.response?.data?.message ?? '匯入失敗'),
   })
 
   const approve = useMutation({
@@ -63,6 +109,59 @@ export default function PaymentRequestPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['payment-requests'] }); message.success('已刪除') },
     onError: (e: any) => message.error(e.response?.data?.message ?? '刪除失敗'),
   })
+
+  const handleExport = () => {
+    const rows = (data?.data ?? []).map((r: any) => ({
+      單號: r.prNo,
+      申請人: r.requester?.name ?? '',
+      費用類別: r.category,
+      說明: r.description,
+      金額: Number(r.amount),
+      狀態: statusLabel[r.status] ?? r.status,
+      備註: r.notes ?? '',
+      申請時間: dayjs(r.createdAt).format('YYYY/MM/DD HH:mm'),
+    }))
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '請款單')
+    XLSX.writeFile(wb, `請款單_${dayjs().format('YYYYMMDD')}.xlsx`)
+  }
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    const buf = await file.arrayBuffer()
+    const wb = XLSX.read(buf, { type: 'array' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const rows: any[] = XLSX.utils.sheet_to_json(ws)
+    if (!rows.length) return message.warning('Excel 中沒有資料')
+    const mapped = rows.map((r, i) => {
+      const prNo = String(r['單號'] ?? '').trim()
+      const category = String(r['費用類別'] ?? '').trim()
+      const description = String(r['說明'] ?? '').trim()
+      const amount = Number(r['金額'])
+      const notes = String(r['備註'] ?? '').trim() || undefined
+      if (!prNo || !category || !description || !amount) {
+        throw new Error(`第 ${i + 2} 列資料不完整（需填：單號、費用類別、說明、金額）`)
+      }
+      return { prNo, category, description, amount, notes }
+    })
+    try {
+      importBatch.mutate(mapped)
+    } catch (err: any) {
+      message.error(err.message)
+    }
+  }
+
+  const handleDownloadTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([
+      { 單號: 'PR2025-001', 費用類別: '差旅費', 說明: '出差台中交通費', 金額: 1200, 備註: '' },
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '請款單匯入範本')
+    XLSX.writeFile(wb, '請款單匯入範本.xlsx')
+  }
 
   const columns = [
     { title: '單號', dataIndex: 'prNo', width: 130 },
@@ -113,19 +212,32 @@ export default function PaymentRequestPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Typography.Title level={4} style={{ margin: 0 }}>請款管理</Typography.Title>
-        <Space>
+        <Space wrap>
           <Select allowClear placeholder="篩選狀態" style={{ width: 120 }}
             value={filterStatus} onChange={setFilterStatus}
             options={Object.entries(statusLabel).map(([k, v]) => ({ value: k, label: v }))}
           />
+          {canManageCat && (
+            <Button icon={<SettingOutlined />} onClick={() => setCatOpen(true)}>費用類別</Button>
+          )}
+          <Tooltip title="下載匯入範本">
+            <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>範本</Button>
+          </Tooltip>
+          <Button icon={<UploadOutlined />} onClick={() => importRef.current?.click()}
+            loading={importBatch.isPending}>匯入 Excel</Button>
+          <Button icon={<DownloadOutlined />} onClick={handleExport}>匯出 Excel</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>新增請款單</Button>
         </Space>
       </div>
+
+      <input ref={importRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
+        onChange={handleImportFile} />
 
       <Table dataSource={data?.data ?? []} columns={columns} rowKey="id"
         loading={isLoading} scroll={{ x: 1000 }}
         pagination={{ total: data?.total, pageSize: 20 }} />
 
+      {/* 新增請款單 Modal */}
       <Modal title="新增請款單" open={open} onCancel={() => { setOpen(false); form.resetFields() }}
         onOk={() => form.submit()} confirmLoading={create.isPending}>
         <Form form={form} layout="vertical" onFinish={create.mutate} style={{ marginTop: 12 }}>
@@ -134,8 +246,9 @@ export default function PaymentRequestPage() {
           </Form.Item>
           <Form.Item name="category" label="費用類別" rules={[{ required: true }]}>
             <Select
-              options={['差旅費','材料費','設備費','勞務費','行政費用','其他'].map(v => ({ value: v, label: v }))}
-              showSearch allowClear
+              options={allCategories.map(v => ({ value: v, label: v }))}
+              showSearch allowClear loading={catLoading}
+              placeholder="選擇費用類別"
             />
           </Form.Item>
           <Form.Item name="description" label="說明" rules={[{ required: true }]}>
@@ -150,6 +263,49 @@ export default function PaymentRequestPage() {
             <Input.TextArea rows={2} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 費用類別管理 Modal */}
+      <Modal title="費用類別管理" open={catOpen} onCancel={() => setCatOpen(false)} footer={null} width={480}>
+        <Divider orientation="left" plain style={{ fontSize: 13, color: '#666' }}>預設類別（不可刪除）</Divider>
+        <Space wrap style={{ marginBottom: 16 }}>
+          {(catData?.defaults ?? []).map((name: string) => (
+            <Tag key={name} color="default">{name}</Tag>
+          ))}
+        </Space>
+
+        <Divider orientation="left" plain style={{ fontSize: 13, color: '#666' }}>自訂類別</Divider>
+        <Space wrap style={{ marginBottom: 16 }}>
+          {(catData?.custom ?? []).length === 0 && (
+            <Typography.Text type="secondary" style={{ fontSize: 13 }}>尚無自訂類別</Typography.Text>
+          )}
+          {(catData?.custom ?? []).map((c: any) => (
+            <Tag key={c.id} color="blue" closable
+              onClose={(e) => { e.preventDefault(); delCat.mutate(c.id) }}>
+              {c.name}
+            </Tag>
+          ))}
+        </Space>
+
+        <Divider />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Input
+            placeholder="輸入新類別名稱"
+            value={newCatName}
+            onChange={e => setNewCatName(e.target.value)}
+            onPressEnter={() => newCatName.trim() && addCat.mutate(newCatName.trim())}
+            maxLength={50}
+          />
+          <Button type="primary" icon={<PlusOutlined />}
+            loading={addCat.isPending}
+            disabled={!newCatName.trim()}
+            onClick={() => addCat.mutate(newCatName.trim())}>
+            新增
+          </Button>
+        </div>
+        <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: 8, display: 'block' }}>
+          按 Enter 或點新增按鈕可加入自訂類別，刪除（×）後該類別不影響現有請款單記錄。
+        </Typography.Text>
       </Modal>
     </div>
   )
