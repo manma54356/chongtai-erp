@@ -20,6 +20,7 @@ import paymentRequestRoutes     from './routes/paymentRequests.js'
 import accountingPeriodRoutes   from './routes/accountingPeriods.js'
 import invoiceRoutesDef         from './routes/invoiceRoutes.js'
 import expenseCategoryRoutes    from './routes/expenseCategories.js'
+import aiRoutes                 from './routes/ai.js'
 
 const app = Fastify({ logger: true })
 
@@ -49,6 +50,7 @@ await app.register(paymentRequestRoutes,   prefix)
 await app.register(accountingPeriodRoutes, prefix)
 await app.register(invoiceRoutesDef,       prefix)
 await app.register(expenseCategoryRoutes,  prefix)
+await app.register(aiRoutes,               prefix)
 
 app.get('/health', async () => ({ status: 'ok' }))
 

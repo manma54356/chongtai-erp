@@ -20,6 +20,7 @@ import AccountingPeriodPage from './pages/finance/AccountingPeriodPage'
 import InvoicePage from './pages/finance/InvoicePage'
 import UserManagementPage from './pages/settings/UserManagementPage'
 import AuditLogPage from './pages/settings/AuditLogPage'
+import AIAssistantPage from './pages/ai/AIAssistantPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, isLoading } = useAuth()
@@ -49,6 +50,7 @@ export default function App() {
       <Route path="/finance/chart-of-accounts"       element={<ProtectedRoute><ChartOfAccountsPage /></ProtectedRoute>} />
       <Route path="/settings/users"                  element={<ProtectedRoute><UserManagementPage /></ProtectedRoute>} />
       <Route path="/settings/audit-logs"             element={<ProtectedRoute><AuditLogPage /></ProtectedRoute>} />
+      <Route path="/ai/assistant"                     element={<ProtectedRoute><AIAssistantPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
