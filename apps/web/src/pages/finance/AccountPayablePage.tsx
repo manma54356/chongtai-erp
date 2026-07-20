@@ -10,12 +10,13 @@ const statusLabel: Record<string, string> = { PENDING: '待審核', APPROVED: '�
 
 export default function AccountPayablePage() {
   const [open, setOpen] = useState(false)
+  const [page, setPage] = useState(1)
   const [form] = Form.useForm()
   const qc = useQueryClient()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['payables'],
-    queryFn: () => api.get('/api/payables').then(r => r.data),
+    queryKey: ['payables', page],
+    queryFn: () => api.get(`/api/payables?page=${page}`).then(r => r.data),
   })
   const { data: vendors } = useQuery({
     queryKey: ['vendors'],
@@ -24,7 +25,7 @@ export default function AccountPayablePage() {
 
   const create = useMutation({
     mutationFn: (v: any) => api.post('/api/payables', v),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payables'] }); setOpen(false); form.resetFields() },
+    onSuccess: () => { setPage(1); qc.invalidateQueries({ queryKey: ['payables'] }); setOpen(false); form.resetFields() },
   })
   const approve = useMutation({
     mutationFn: (id: string) => api.put(`/api/payables/${id}/approve`),
@@ -65,7 +66,7 @@ export default function AccountPayablePage() {
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>新增應付</Button>
       </div>
       <Table dataSource={data?.data ?? []} columns={columns} rowKey="id" loading={isLoading}
-        pagination={{ total: data?.total, pageSize: 20 }} />
+        pagination={{ total: data?.total, pageSize: 20, current: page, onChange: setPage }} />
 
       <Modal title="新增應付帳款" open={open} onCancel={() => setOpen(false)}
         onOk={() => form.submit()} confirmLoading={create.isPending}>

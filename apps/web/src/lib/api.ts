@@ -12,14 +12,57 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// 401 自動登出
+// 401 自動用 refresh token 換新 token，換失敗才登出
+let isRefreshing = false
+let queue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = []
+
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
-    if (err.response?.status === 401) {
+  async (err) => {
+    const original = err.config
+    if (!original || err.response?.status !== 401 || original._retry) {
+      return Promise.reject(err)
+    }
+    const refreshToken = localStorage.getItem('refreshToken')
+    if (!refreshToken) {
       localStorage.removeItem('token')
       window.location.href = '/login'
+      return Promise.reject(err)
     }
-    return Promise.reject(err)
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        queue.push({
+          resolve: (token) => {
+            original.headers.Authorization = `Bearer ${token}`
+            original._retry = true
+            resolve(api(original))
+          },
+          reject,
+        })
+      })
+    }
+    original._retry = true
+    isRefreshing = true
+    try {
+      const { data } = await axios.post(
+        `${import.meta.env.VITE_API_URL ?? ''}/api/auth/refresh`,
+        { refreshToken }
+      )
+      localStorage.setItem('token', data.token)
+      api.defaults.headers.common.Authorization = `Bearer ${data.token}`
+      queue.forEach(({ resolve }) => resolve(data.token))
+      queue = []
+      original.headers.Authorization = `Bearer ${data.token}`
+      return api(original)
+    } catch {
+      queue.forEach(({ reject }) => reject(err))
+      queue = []
+      localStorage.removeItem('token')
+      localStorage.removeItem('refreshToken')
+      window.location.href = '/login'
+      return Promise.reject(err)
+    } finally {
+      isRefreshing = false
+    }
   }
 )

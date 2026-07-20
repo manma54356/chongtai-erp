@@ -13,7 +13,10 @@ export default async function userRoutes(app: FastifyInstance) {
     })
   })
 
+  // P0: OWNER-only guard added
   app.post('/users', auth, async (req, reply) => {
+    if (req.role !== 'OWNER') return reply.code(403).send({ message: '僅老闆可新增成員' })
+
     const body = z.object({
       name: z.string().min(1),
       email: z.string().email(),
@@ -55,8 +58,11 @@ export default async function userRoutes(app: FastifyInstance) {
     })
   })
 
+  // P0: OWNER check + self-deactivation guard added
   app.put('/users/:userId/deactivate', auth, async (req, reply) => {
+    if (req.role !== 'OWNER') return reply.code(403).send({ message: '僅老闆可停用帳號' })
     const { userId } = req.params as any
+    if (userId === req.userId) return reply.code(400).send({ message: '不能停用自己的帳號' })
     return prisma.user.update({ where: { id: userId }, data: { isActive: false } })
   })
 

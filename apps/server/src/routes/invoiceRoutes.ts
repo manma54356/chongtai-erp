@@ -20,14 +20,15 @@ export default async function invoiceRoutes(app: FastifyInstance) {
 
   app.get('/invoices', auth, async (req) => {
     const { page = 1, pageSize = 20, type, status, contractId } = req.query as any
+    const where = {
+      companyId: req.companyId,
+      ...(type ? { type } : {}),
+      ...(status ? { status } : {}),
+      ...(contractId ? { contractId } : {}),
+    }
     const [data, total] = await Promise.all([
       prisma.invoice.findMany({
-        where: {
-          companyId: req.companyId,
-          ...(type ? { type } : {}),
-          ...(status ? { status } : {}),
-          ...(contractId ? { contractId } : {}),
-        },
+        where,
         skip: (Number(page) - 1) * Number(pageSize),
         take: Number(pageSize),
         orderBy: { issueDate: 'desc' },
@@ -35,7 +36,7 @@ export default async function invoiceRoutes(app: FastifyInstance) {
           contract: { select: { contractNo: true, customer: { select: { name: true } } } },
         },
       }),
-      prisma.invoice.count({ where: { companyId: req.companyId } }),
+      prisma.invoice.count({ where }),
     ])
     return { data, total, page: Number(page), pageSize: Number(pageSize) }
   })

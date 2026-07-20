@@ -16,7 +16,12 @@ declare module 'fastify' {
 export default fp(async (app: FastifyInstance) => {
   app.decorate('authenticate', async (req: FastifyRequest, reply: FastifyReply) => {
     try {
-      const payload = await req.jwtVerify<{ userId: string; companyId: string; role: string }>()
+      const payload = await req.jwtVerify<{ userId: string; companyId: string; role: string; type?: string }>()
+      // P0: reject refresh tokens from being used as access tokens
+      if (payload.type === 'refresh') {
+        reply.code(401).send({ message: '請先登入' })
+        return
+      }
       req.userId = payload.userId
       req.companyId = payload.companyId
       req.role = payload.role

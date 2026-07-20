@@ -19,8 +19,10 @@ export default async function customerRoutes(app: FastifyInstance) {
 
   // 列表
   app.get('/customers', auth, async (req) => {
-    const { page = 1, pageSize = 20, grade, keyword } = req.query as any
-    const where = {
+    const page = Number((req.query as any).page ?? 1)
+    const pageSize = Number((req.query as any).pageSize ?? 20)
+    const { grade, keyword, projectId } = req.query as any
+    const where: any = {
       companyId: req.companyId,
       ...(grade ? { grade } : {}),
       ...(keyword ? {
@@ -29,12 +31,24 @@ export default async function customerRoutes(app: FastifyInstance) {
           { phone: { contains: keyword } },
         ],
       } : {}),
+      ...(projectId ? {
+        contracts: { some: { unit: { projectId } } },
+      } : {}),
     }
     const [data, total] = await Promise.all([
       prisma.customer.findMany({
         where, skip: (page - 1) * pageSize, take: pageSize,
         orderBy: { createdAt: 'desc' },
-        include: { _count: { select: { contracts: true, followUps: true } } },
+        include: {
+          _count: { select: { contracts: true, followUps: true } },
+          contracts: {
+            select: {
+              id: true,
+              contractNo: true,
+              unit: { select: { project: { select: { id: true, name: true } } } },
+            },
+          },
+        },
       }),
       prisma.customer.count({ where }),
     ])
@@ -73,9 +87,11 @@ export default async function customerRoutes(app: FastifyInstance) {
     return prisma.customer.update({ where: { id }, data: body })
   })
 
-  // 新增跟進紀錄
+  // P0: verify customer belongs to this company before adding follow-up
   app.post('/customers/:id/follow-ups', auth, async (req, reply) => {
     const { id } = req.params as { id: string }
+    const customer = await prisma.customer.findFirst({ where: { id, companyId: req.companyId } })
+    if (!customer) return reply.code(404).send({ message: '找不到此客戶' })
     const { content, nextFollowUp } = req.body as any
     const record = await prisma.customerFollowUp.create({
       data: {

@@ -17,18 +17,25 @@ const statusLabel: Record<string, string> = {
 
 export default function ProjectList() {
   const [open, setOpen] = useState(false)
+  const [page, setPage] = useState(1)
   const [form] = Form.useForm()
   const qc = useQueryClient()
   const navigate = useNavigate()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => api.get('/api/projects').then(r => r.data),
+    queryKey: ['projects', page],
+    queryFn: () => api.get(`/api/projects?page=${page}`).then(r => r.data),
   })
 
   const create = useMutation({
     mutationFn: (values: any) => api.post('/api/projects', values),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); setOpen(false); form.resetFields() },
+    onSuccess: () => {
+      setPage(1)
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      qc.invalidateQueries({ queryKey: ['projects-simple'] })
+      setOpen(false)
+      form.resetFields()
+    },
   })
 
   const columns = [
@@ -54,7 +61,8 @@ export default function ProjectList() {
       </div>
 
       <Table dataSource={data?.data ?? []} columns={columns} rowKey="id"
-        loading={isLoading} pagination={{ total: data?.total, pageSize: 20 }}
+        loading={isLoading}
+        pagination={{ total: data?.total, pageSize: 20, current: page, onChange: setPage }}
         onRow={(r: any) => ({ onClick: () => navigate(`/projects/${r.id}`), style: { cursor: 'pointer' } })} />
 
       <Modal title="新增建案" open={open} onCancel={() => setOpen(false)}

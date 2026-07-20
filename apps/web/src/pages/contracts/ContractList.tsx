@@ -21,6 +21,7 @@ export default function ContractList() {
   const [filterProjectId, setFilterProjectId] = useState<string | undefined>()
   const [status, setStatus] = useState<string | undefined>()
   const [open, setOpen] = useState(false)
+  const [page, setPage] = useState(1)
   const [form] = Form.useForm()
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>()
 
@@ -41,13 +42,12 @@ export default function ContractList() {
   })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['contracts', filterProjectId, status],
+    queryKey: ['contracts', filterProjectId, status, page],
     queryFn: () => {
-      const params = new URLSearchParams()
+      const params = new URLSearchParams({ page: String(page) })
       if (filterProjectId) params.set('projectId', filterProjectId)
       if (status) params.set('status', status)
-      const qs = params.toString()
-      return api.get(`/api/contracts${qs ? `?${qs}` : ''}`).then(r => r.data)
+      return api.get(`/api/contracts?${params}`).then(r => r.data)
     },
   })
 
@@ -58,6 +58,7 @@ export default function ContractList() {
       deliveryDate: v.deliveryDate ? v.deliveryDate.format('YYYY-MM-DD') : undefined,
     }),
     onSuccess: (res) => {
+      setPage(1)
       qc.invalidateQueries({ queryKey: ['contracts'] })
       message.success('合約建立成功')
       setOpen(false)
@@ -101,11 +102,11 @@ export default function ContractList() {
         <Typography.Title level={4} style={{ margin: 0 }}>合約管理</Typography.Title>
         <Space>
           <Select allowClear placeholder="篩選案件" style={{ width: 160 }}
-            value={filterProjectId} onChange={setFilterProjectId}
+            value={filterProjectId} onChange={v => { setFilterProjectId(v); setPage(1) }}
             options={(projects ?? []).map((p: any) => ({ value: p.id, label: p.name }))}
           />
           <Select allowClear placeholder="篩選狀態" style={{ width: 120 }}
-            value={status} onChange={setStatus}
+            value={status} onChange={v => { setStatus(v); setPage(1) }}
             options={Object.entries(statusLabel).map(([k, v]) => ({ value: k, label: v }))}
           />
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>新增合約</Button>
@@ -113,7 +114,8 @@ export default function ContractList() {
       </div>
 
       <Table dataSource={data?.data ?? []} columns={columns} rowKey="id"
-        loading={isLoading} pagination={{ total: data?.total, pageSize: 20 }}
+        loading={isLoading}
+        pagination={{ total: data?.total, pageSize: 20, current: page, onChange: setPage }}
         scroll={{ x: 900 }}
         onRow={(r: any) => ({ onClick: () => navigate(`/contracts/${r.id}`), style: { cursor: 'pointer' } })} />
 

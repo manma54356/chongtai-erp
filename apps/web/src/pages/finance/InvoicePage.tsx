@@ -20,6 +20,7 @@ export default function InvoicePage() {
   const { role } = useAuth()
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
+  const [page, setPage] = useState(1)
   const [form] = Form.useForm()
   const [filterType, setFilterType] = useState<string | undefined>()
   const [filterStatus, setFilterStatus] = useState<string | undefined>()
@@ -33,9 +34,9 @@ export default function InvoicePage() {
   })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['invoices', filterType, filterStatus],
+    queryKey: ['invoices', filterType, filterStatus, page],
     queryFn: () => {
-      const params = new URLSearchParams()
+      const params = new URLSearchParams({ page: String(page) })
       if (filterType) params.set('type', filterType)
       if (filterStatus) params.set('status', filterStatus)
       return api.get(`/api/invoices?${params}`).then(r => r.data)
@@ -48,6 +49,7 @@ export default function InvoicePage() {
       issueDate: v.issueDate.format('YYYY-MM-DD'),
     }),
     onSuccess: () => {
+      setPage(1)
       qc.invalidateQueries({ queryKey: ['invoices'] })
       message.success('發票已開立')
       setOpen(false)
@@ -98,11 +100,11 @@ export default function InvoicePage() {
         <Typography.Title level={4} style={{ margin: 0 }}>出帳管理</Typography.Title>
         <Space>
           <Select allowClear placeholder="發票類型" style={{ width: 140 }}
-            value={filterType} onChange={setFilterType}
+            value={filterType} onChange={v => { setFilterType(v); setPage(1) }}
             options={Object.entries(typeLabel).map(([k, v]) => ({ value: k, label: v }))}
           />
           <Select allowClear placeholder="狀態" style={{ width: 100 }}
-            value={filterStatus} onChange={setFilterStatus}
+            value={filterStatus} onChange={v => { setFilterStatus(v); setPage(1) }}
             options={[{ value: 'VALID', label: '有效' }, { value: 'VOIDED', label: '已作廢' }]}
           />
           {canCreate && (
@@ -113,7 +115,7 @@ export default function InvoicePage() {
 
       <Table dataSource={data?.data ?? []} columns={columns} rowKey="id"
         loading={isLoading} scroll={{ x: 900 }}
-        pagination={{ total: data?.total, pageSize: 20 }} />
+        pagination={{ total: data?.total, pageSize: 20, current: page, onChange: setPage }} />
 
       <Modal title="開立發票" open={open} onCancel={() => { setOpen(false); form.resetFields() }}
         onOk={() => form.submit()} confirmLoading={create.isPending} width={520}>
