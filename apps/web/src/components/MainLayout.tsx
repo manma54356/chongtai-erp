@@ -6,7 +6,6 @@ import {
   AccountBookOutlined, LogoutOutlined, UserOutlined, SettingOutlined,
   ShopOutlined, AuditOutlined, BankOutlined, SolutionOutlined, PieChartOutlined,
   HistoryOutlined, KeyOutlined, SendOutlined, CalendarOutlined, ProfileOutlined,
-  RobotOutlined,
 } from '@ant-design/icons'
 import { useAuth } from '../context/AuthContext'
 import ChangePasswordModal from './ChangePasswordModal'
@@ -71,9 +70,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     ],
   }] : []
 
-  const aiMenu = [{ key: '/ai/assistant', icon: <RobotOutlined />, label: 'AI 財務助理' }]
-
-  const menuItems = [...baseMenuItems, ...financeMenu, ...aiMenu, ...settingsMenu]
+  // AI 財務助理選單暫時隱藏：待設定 ANTHROPIC_API_KEY 後改回
+  // [...baseMenuItems, ...financeMenu, [{ key: '/ai/assistant', icon: <RobotOutlined />, label: 'AI 財務助理' }], ...settingsMenu]
+  const menuItems = [...baseMenuItems, ...financeMenu, ...settingsMenu]
 
   const openKeys = location.pathname.startsWith('/finance')
     ? ['finance']
